@@ -2,7 +2,7 @@
 
 **Enterprise Challenge 2026 — FIAP + GoodWe**
 
----
+
 
 ## 👥 Equipe
 
@@ -183,19 +183,108 @@ A IA é estrutural na otimização de custos, segurança e experiência do utili
 
 4. **Chatbot Conversacional:** integrado a WhatsApp ou portal web, responde automaticamente a perguntas dos moradores: consumo do mês, valor da última fatura, melhor horário para carregar
 
-#### Opção C — Esquema Relacional da Base de Dados
+### Opção C — Esquema Relacional da Base de Dados
 
-| Entidade | Atributos Principais | Relacionamentos |
-| :--- | :--- | :--- |
-| **Unidade** | id_unidade, id_condominio, codigo_unidade, tipo, status | 1 : N Utilizadores (M:N); 1 : N Faturas |
-| **Utilizador** | id_usuario, nome, email, tipo_vinculo, id_rfid, id_app | N : N Unidades; 1 : N Sessões |
-| **Carregador** | id_carregador, fabricante_modelo, localizacao, potencia_nominal, id_sems, estado_operacional | 1 : N Conectores; 1 : N Sessões |
-| **Sessão_Recarga** | id_sessao, id_carregador, id_usuario, id_unidade, dt_inicio, dt_fim, energia_kwh, potencia_media, status_final | N : 1 Utilizador; N : 1 Fatura; 1 : N Leituras |
-| **Leitura_Medicao** | id_leitura, id_sessao, timestamp, energia_acumulada_kwh, potencia_kw, tensao, corrente | N : 1 Sessão (série temporal) |
-| **Tarifa** | id_tarifa, referencia_mes_ano, distribuidora, valor_kwh_efetivo, bandeira_vigente, taxa_infraestrutura | 1 : N Faturas (rastreabilidade histórica) |
-| **Fatura** | id_fatura, id_unidade, periodo, energia_total_kwh, valor_variavel, valor_taxa, valor_total, status_pgto | 1 : N Sessões; N : 1 Tarifa |
+<img width="848" height="745" alt="diagrama_bd_goodwe" src="https://github.com/user-attachments/assets/80585591-e7a7-4954-be41-4aeb3d81234e" />
+
+
+
+### Exemplos de Registros Simulados 
+
+Abaixo apresentamos uma simulação de registros no banco de dados demonstrando o fluxo completo: o cadastro do morador, a utilização do carregador GoodWe e a geração da fatura no fim do mês.  
+
+<br>
+
+### **Tabela: Unidade**
+Atua como o núcleo de faturamento e identificador físico (apartamento ou loja). O relacionamento M:N com Usuário agrega o consumo de múltiplos moradores sob o mesmo teto, enquanto a relação 1:N com Fatura consolida esse consumo em cobranças mensais, isolando os gastos de mobilidade da taxa condominial comum.
+| id_unidade (PK) | id_condominio | cd_unidade | tipo | status | 
+| :--- | :--- | :--- | :--- | :--- | 
+| 1 | 100 | Apt 42 - Bloco B | residencial |	ativo |
+| 2 | 100 | Apt 43 - Bloco B | residencial | ativo |
+| 3 | 100 |Loja 01 - Terreo | comercial | ativo| 
+> Relacionamentos: 1:N Usuários; 1:N Faturas
+
+<br>  
+
+### **Tabela: Usuario** 
+Vetor principal de autenticação e rastreabilidade. Centraliza os dados do morador e suas chaves de acesso (RFID/App). Garante que cada kWh consumido (relacionamento 1:N com Sessão_Recarga) seja atribuído ao indivíduo correto. Suporta a gestão de múltiplas vagas ou propriedades através da associação com Unidades.
+| id_usuario (PK) | id_unidade (FK) | nome | email | telefone | tipo_vinculo | id_rfid | id_app |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | 
+| 10 | 1 | Juan de Lucas Frois | juan.frois@email.com | (11) 98888-7777 | proprietario | TAG_ABC123 | APP_9876 |
+| 11 | 2 | Flávia R. Pennachin | flavia.p@email.com | (11) 99999-5555 | inquilino | TAG_XYZ789 | APP_5432 |
+| 12 | 3 | Pedro Valente Toledo| pedro.toledo@email.com | (11) 97777-4444 | proprietario |	TAG_DEF456 | APP_1122|
+> Relacionamentos: N:N Unidades; 1:N Sessões
+
+<br>
+
+### **Tabela: Unidade_Usuario**
+Entidade associativa que resolve o relacionamento Muitos-para-Muitos (M:N) entre Unidade e Usuário. Modela a realidade de forma normalizada, permitindo que um mesmo apartamento possua vários moradores com VEs ou que um investidor seja dono de múltiplas unidades.
+| id_unidade (PK/FK) | id_usuario (PK/FK) |
+| :--- | :--- |
+| 1 | 10 |
+| 2 | 11 |
+| 3 | 12 |
+> Relacionamentos: N:1 Unidade; N:1 Usuário
+
+<br>
+
+### **Tabela: Carregador** 
+Mapeia localização, capacidade técnica e status operacional. O id_sems é a chave de integração com a API da fabricante para recebimento de telemetria, permitindo auditar a performance de cada máquina isoladamente.
+| id_carregador (PK) | fabricante_modelo | localizacao | potencia_nominal_kw | tipo_conector | id_sems | estado_operacional |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| 5 | GoodWe HCA G2 | Subsolo 1 - Vaga 12 | 7.2 | Tipo 2 | GW_HCA_1234 | online |
+| 6 | GoodWe HCA G2 | Terreo - Vaga Visitante | 11.0 | Tipo 2 | GW_HCA_5678 | online |
+> Relacionamentos: 1:N Conectores; 1:N Sessões
+
+<br>
+
+### **Tabela: Sessão_Recarga**
+Consolida o evento de carregamento, vinculando o equipamento (Carregador), o autor (Usuário) e o responsável financeiro (Unidade/Fatura). Fornece a base de consumo para o Motor de Rateio e gera a massa de dados estruturada que alimenta os modelos preditivos da IA.
+| id_sessao (Pk) | id_carregador (FK) | id_usuario (FK) | id_unidade (FK) | id_fatura (FK) | dt_inicio | dt_fim | energia_kwh | potencia_media | potencia_max | status_final |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| 1001 | 5 | 10 | 1 | 900 | 2026-06-01 22:00:00 | 2026-06-02 02:00:00 | 28.5 | 7.1 | 7.2 | concluida |
+| 1002 | 5 | 11 | 2 | 901 | 2026-06-02 08:30:00 | 2026-06-02 11:45:00 | 21.0 | 6.8 | 7.2 | concluida |
+| 1003 | 6 | 14 | 5 | 904 | 2026-06-03 14:00:00 | 2026-06-03 18:00:00 | 44.0 | 11.0 | 11.0 | concluida|
+> Relacionamentos: N:1 Carregador; N:1 Usuários; N:1 Fatura; N:1 Unidade; 1:N Leitura_Medicao
+
+<br>
+
+### **Tabela: Leitura_Medicao**
+Repositório de telemetria de alta granularidade (time-series). Registra o fluxo contínuo de tensão, corrente e potência (Big Data) durante a sessão. Seu foco não é o faturamento, mas sim alimentar diretamente algoritmos de IA (como Isolation Forest) para detecção de anomalias operacionais e furtos de energia em tempo real.
+| id_leitura (PK) | id_sessao (FK) | timestamp | energia_acumulada_kwh | potencia_instantanea_kw | tensao | corrente |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| 50001 | 1001 | 2026-06-01 22:15:00 | 1.8 | 7.2 | 220V | 32A |
+| 50002 | 1001 | 2026-06-01 22:30:00 | 3.6 | 7.2 | 220V | 32A |
+| 50003 | 1001 | 2026-06-01 22:45:00 | 5.4 | 7.2 | 220V | 32A |
+> Relacionamentos: N:1 Sessão (série temporal)
+
+<br>
+
+### **Tabela: Tarifa**
+Registro histórico e imutável do custo de energia repassado pela concessionária. Armazena o custo efetivo do kWh, bandeira tarifária e taxa de infraestrutura. Garante a integridade financeira do Motor de Rateio, permitindo auditorias exatas de meses anteriores sem que atualizações futuras de preço afetem o histórico consolidado.
+| id_tarifa (PK) | referencia_mes_ano| distribuidora | valor_kwh_efetivo | bandeira_vigente| taxa_infraestrutura|
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 7 | 2026-05 | ENEL SP | 0.92 | Amarela | 50.00 |
+| 8 | 2026-06 | ENEL SP | 0.95 | Verde | 50.00 |
+> Relacionamentos: 1 : N Faturas (rastreabilidade histórica)
+
+<br>
+
+### **Tabela: Fatura (Amostra do Rateio do Mês 06/2026)**  
+Transforma o consumo elétrico em valores monetários mensais auditáveis. Vinculada à Unidade, ela resolve o desafio principal do projeto: desvincular a energia da mobilidade elétrica das despesas comuns do condomínio, gerando uma taxa isolada e transparente.
+| id_fatura (PK) | id_unidade (FK) | id_tarifa (FK) | periodo | energia_total_kwh | valor_variavel | valor_taxa | valor_total | status_pgto |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| 900 | 1 | 8 | 2026-06 | 114.0 | 108.30 | 50.00 | 158.30 | pago |
+| 901 | 2 | 8 | 2026-06 | 42.0 | 39.90 | 50.00 | 89.90 | pendente |
+| 902 | 3 | 8 | 2026-06 | 250.5 | 237.97 | 50.00 | 287.97 | pago |
+> Relacionamentos: 1:N Sessões; N:1 Tarifa; N:1 Unidade
+
+<br>
+
+> 📁 **Nota Técnica:** O script SQL com a DDL e os comandos DML encontra-se no arquivo `database_goodwe.sql` na raiz deste repositório.
 
 ---
+<br>
 
 ## 🏗️ 3. Arquitetura da Solução
 
