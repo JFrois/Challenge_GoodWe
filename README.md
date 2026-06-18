@@ -3,7 +3,6 @@
 **Enterprise Challenge 2026 — FIAP + GoodWe**
 
 
-
 ## 👥 Equipe
 
 | Nome | RM |
@@ -12,7 +11,7 @@
 | Flávia Roberta Pennachin | RM561860 |
 | Pedro Valente Toledo | RM570394 |
 
----
+---    
 
 ## 🎯 1. Contexto e Descrição do Problema
 
@@ -55,15 +54,23 @@ O crescimento exponencial da frota de veículos elétricos (VEs) no Brasil troux
 | Cobrança por kWh | Utilizador paga pela energia exata | Transparência; justiça financeira | Exige equipamentos certificados |
 | Cobrança por Tempo | Valor por minuto/hora conectada | Incentiva rotatividade | Injusto para veículos com recarga mais lenta |
 | Assinatura Mensal | Taxa fixa por acesso ilimitado | Previsibilidade financeira | Ineficiente para uso baixo |
-| **Rateio Proporcional (Adotado)** | kWh consumido + taxa fixa de infraestrutura, apenas para quem tem VE | Máxima justiça; transparência; escalável | Requer carregador inteligente com API |
+| **Rateio Proporcional (Adotado)** | kWh consumido + taxa fixa de infraestrutura, apenas para quem tem VE | Máxima justiça; transparência; escalável | Requer carregador inteligente com API |/
 
----
+
 
 ## 🔍 2. As Três Frentes de Pesquisa
+Para abranger toda a complexidade do desafio EV ChargeOps, nossa equipe optou por aprofundar a pesquisa nas seguintes frentes propostas pela FIAP:
 
-### Frente 1 — Contexto e Problema de Mercado
+*   **Frente 1 (Contexto):** Opção A (Análise de Soluções) e Opção C (Dados Públicos Brasileiros).
+*   **Frente 2 (Regulação e Técnica):** Opção A (Mapeamento Regulatório), Opção B (API GoodWe) e Opção C (APIs Complementares).
+*   **Frente 3 (Arquitetura e IA):** Opção A (Benchmarking de Rateio), Opção B (Papel da IA) e Opção C (Esquema Relacional).
+  
 
-#### Opção A — Análise de Soluções Existentes
+## Frente 1 — Contexto e Problema de Mercado
+<details>
+<summary>Clique para ver a frente 1 em detalhe:</summary>
+
+### Opção A — Análise de Soluções Existentes
 
 | Solução | Problema que Resolve | Funcionalidades Principais | Modelo de Negócio | Limitações |
 | :--- | :--- | :--- | :--- | :--- |
@@ -75,17 +82,22 @@ O crescimento exponencial da frota de veículos elétricos (VEs) no Brasil troux
 
 > **Oportunidade identificada:** nenhuma solução oferece, de forma integrada e acessível para o mercado condominial brasileiro, a combinação de rateio automático por kWh, integração com ANEEL, compatibilidade com GoodWe e IA para previsão e anomalias.
 
-#### Opção C — Análise de Dados Públicos: Cenário Brasileiro
+### Opção C — Análise de Dados Públicos: Cenário Brasileiro
 
 - **Crescimento da frota:** A ABVE registou crescimento de 59% na frota eletrificada em 2025, ultrapassando 150 mil veículos emplacados acumulados. Os modelos mais vendidos são BYD Dolphin, Dolphin Mini e GWM Ora 03
 - **Infraestrutura desigual:** O Brasil possui mais de 169 mil pontos de recarga (AutoIndústria, Set/2025), mas a concentração na Região Sudeste — especialmente São Paulo — é desproporcional
 - **Perfil de uso:** Cerca de 80% das recargas ocorrem em residências ou locais de trabalho. O perfil é predominantemente urbano e noturno
 - **Recarga AC vs DC:** Carregadores AC são os mais comuns em condomínios por menor custo de instalação. Carregadores DC concentram-se em rodovias
 - **Gargalo em condomínios:** A infraestrutura elétrica de prédios antigos em São Paulo não acompanha o crescimento da frota, tornando soluções de software a alternativa viável sem reformas elétricas milionárias
+</details>
 
 ---
 
-### Frente 2 — Base Regulatória e Técnica
+## Frente 2 — Base Regulatória e Técnica
+<details>
+<summary>Clique para ver a frente 2 em detalhe:</summary>
+
+## Opção A - Mapeamento Regulatório
 
 #### Resolução Normativa ANEEL nº 1.000/2021
 
@@ -98,18 +110,18 @@ O crescimento exponencial da frota de veículos elétricos (VEs) no Brasil troux
 
 A instalação requer também **comunicação prévia à distribuidora local (ENEL SP)** com projeto elétrico assinado por responsável técnico habilitado, informando o aumento de carga e a nova demanda contratada.
 
-#### Normas Técnicas Complementares
+### Normas Técnicas Complementares
 
 - **ABNT NBR IEC 61851:** requisitos técnicos para sistemas de recarga condutiva de VEs — segurança, comunicação, conectores e proteção elétrica
 - **ABNT NBR 5410:** instalações elétricas de baixa tensão — dimensionamento de circuitos, proteção e aterramento
 - **Normas ENEL SP:** padrões próprios da concessionária para aumento de carga, conexão de carregadores e projetos elétricos
 
-#### Normas Estaduais e Municipais — São Paulo
+### Normas Estaduais e Municipais — São Paulo
 
 - **Lei Municipal de SP nº 17.336/2020:** proíbe síndicos e assembleias de impedir a instalação de carregadores por condôminos, desde que exista viabilidade técnica. Esta lei é um habilitador direto do mercado-alvo do EV ChargeOps, removendo a principal barreira jurídica à adoção
 - **IT-39 do Corpo de Bombeiros (PMESP):** regula a operação de VEs e estações de recarga em garagens e subsolos. Exige distanciamentos, exaustão, sinalização e desligamento automático em caso de incêndio. O EV ChargeOps pode integrar a interrupção de sessões via software ao acionar alarmes prediais
 
-#### Opção B — API GoodWe (SEMS Portal)
+## Opção B — API GoodWe (SEMS Portal)
 
 A API SEMS expõe dados estruturados via REST. Endpoints principais:
 
@@ -129,7 +141,7 @@ Exemplo de resposta JSON:
 }
 ```
 
-#### Interfaces do GoodWe HCA G2
+### Interfaces do GoodWe HCA G2
 
 | Interface | Função | Uso no EV ChargeOps |
 | :--- | :--- | :--- |
@@ -138,16 +150,19 @@ Exemplo de resposta JSON:
 | Bluetooth | Configuração local via app | Comissionamento inicial do equipamento |
 | RFID | Leitura de tags de identificação | Autenticação física do utilizador na vaga |
 
-#### Opção C — APIs Externas Complementares
+## Opção C — APIs Externas Complementares
 
 - **Google Places API (evChargeOptions):** monitora a densidade de carregadores públicos próximos para subsidiar a política de preços condominial
 - **ANEEL Open Data:** busca automática das tarifas atualizadas da distribuidora local (incluindo bandeiras tarifárias), atualizando o custo base do kWh no rateio mensal
+</details>
 
 ---
 
-### Frente 3 — Arquitetura e Inteligência Artificial
+## Frente 3 — Arquitetura e Inteligência Artificial
+<details>
+<summary>Clique para ver a frente 3 em detalhe:</summary>
 
-#### Opção A — Benchmarking de Modelos de Rateio
+## Opção A — Benchmarking de Modelos de Rateio
 
 | Modelo | Funcionamento | Vantagens | Limitações |
 | :--- | :--- | :--- | :--- |
@@ -171,7 +186,7 @@ Valor_Total(u) = [Consumo_kWh(u) × Tarifa_efetiva_R$/kWh] + Taxa_infraestrutura
 - Meses sem recarga: utilizador paga apenas a cota condominial regular, sem acréscimo de energia
 - Tarifa variável: atualização automática via ANEEL Open Data a cada ciclo
 
-#### Opção B — Papel da Inteligência Artificial
+## Opção B — Papel da Inteligência Artificial
 
 A IA é estrutural na otimização de custos, segurança e experiência do utilizador:
 
@@ -183,9 +198,9 @@ A IA é estrutural na otimização de custos, segurança e experiência do utili
 
 4. **Chatbot Conversacional:** integrado a WhatsApp ou portal web, responde automaticamente a perguntas dos moradores: consumo do mês, valor da última fatura, melhor horário para carregar
 
-### Opção C — Esquema Relacional da Base de Dados
+## Opção C — Esquema Relacional da Base de Dados
 
-<img width="848" height="745" alt="diagrama_bd_goodwe" src="https://github.com/user-attachments/assets/80585591-e7a7-4954-be41-4aeb3d81234e" />
+![Esquema Relacional do Banco de Dados GoodWe](./docs/diagrama_bd_goodwe.png)
 
 
 
@@ -193,7 +208,7 @@ A IA é estrutural na otimização de custos, segurança e experiência do utili
 
 Abaixo apresentamos uma simulação de registros no banco de dados demonstrando o fluxo completo: o cadastro do morador, a utilização do carregador GoodWe e a geração da fatura no fim do mês.  
 
-<br>
+
 
 ### **Tabela: Unidade**
 Atua como o núcleo de faturamento e identificador físico (apartamento ou loja). O relacionamento M:N com Usuário agrega o consumo de múltiplos moradores sob o mesmo teto, enquanto a relação 1:N com Fatura consolida esse consumo em cobranças mensais, isolando os gastos de mobilidade da taxa condominial comum.
@@ -204,7 +219,7 @@ Atua como o núcleo de faturamento e identificador físico (apartamento ou loja)
 | 3 | 100 |Loja 01 - Terreo | comercial | ativo| 
 > Relacionamentos: 1:N Usuários; 1:N Faturas
 
-<br>  
+
 
 ### **Tabela: Usuario** 
 Vetor principal de autenticação e rastreabilidade. Centraliza os dados do morador e suas chaves de acesso (RFID/App). Garante que cada kWh consumido (relacionamento 1:N com Sessão_Recarga) seja atribuído ao indivíduo correto. Suporta a gestão de múltiplas vagas ou propriedades através da associação com Unidades.
@@ -215,7 +230,7 @@ Vetor principal de autenticação e rastreabilidade. Centraliza os dados do mora
 | 12 | 3 | Pedro Valente Toledo| pedro.toledo@email.com | (11) 97777-4444 | proprietario |	TAG_DEF456 | APP_1122|
 > Relacionamentos: N:N Unidades; 1:N Sessões
 
-<br>
+
 
 ### **Tabela: Unidade_Usuario**
 Entidade associativa que resolve o relacionamento Muitos-para-Muitos (M:N) entre Unidade e Usuário. Modela a realidade de forma normalizada, permitindo que um mesmo apartamento possua vários moradores com VEs ou que um investidor seja dono de múltiplas unidades.
@@ -226,7 +241,7 @@ Entidade associativa que resolve o relacionamento Muitos-para-Muitos (M:N) entre
 | 3 | 12 |
 > Relacionamentos: N:1 Unidade; N:1 Usuário
 
-<br>
+
 
 ### **Tabela: Carregador** 
 Mapeia localização, capacidade técnica e status operacional. O id_sems é a chave de integração com a API da fabricante para recebimento de telemetria, permitindo auditar a performance de cada máquina isoladamente.
@@ -236,7 +251,7 @@ Mapeia localização, capacidade técnica e status operacional. O id_sems é a c
 | 6 | GoodWe HCA G2 | Terreo - Vaga Visitante | 11.0 | Tipo 2 | GW_HCA_5678 | online |
 > Relacionamentos: 1:N Conectores; 1:N Sessões
 
-<br>
+
 
 ### **Tabela: Sessão_Recarga**
 Consolida o evento de carregamento, vinculando o equipamento (Carregador), o autor (Usuário) e o responsável financeiro (Unidade/Fatura). Fornece a base de consumo para o Motor de Rateio e gera a massa de dados estruturada que alimenta os modelos preditivos da IA.
@@ -247,7 +262,7 @@ Consolida o evento de carregamento, vinculando o equipamento (Carregador), o aut
 | 1003 | 6 | 14 | 5 | 904 | 2026-06-03 14:00:00 | 2026-06-03 18:00:00 | 44.0 | 11.0 | 11.0 | concluida|
 > Relacionamentos: N:1 Carregador; N:1 Usuários; N:1 Fatura; N:1 Unidade; 1:N Leitura_Medicao
 
-<br>
+
 
 ### **Tabela: Leitura_Medicao**
 Repositório de telemetria de alta granularidade (time-series). Registra o fluxo contínuo de tensão, corrente e potência (Big Data) durante a sessão. Seu foco não é o faturamento, mas sim alimentar diretamente algoritmos de IA (como Isolation Forest) para detecção de anomalias operacionais e furtos de energia em tempo real.
@@ -258,7 +273,7 @@ Repositório de telemetria de alta granularidade (time-series). Registra o fluxo
 | 50003 | 1001 | 2026-06-01 22:45:00 | 5.4 | 7.2 | 220V | 32A |
 > Relacionamentos: N:1 Sessão (série temporal)
 
-<br>
+
 
 ### **Tabela: Tarifa**
 Registro histórico e imutável do custo de energia repassado pela concessionária. Armazena o custo efetivo do kWh, bandeira tarifária e taxa de infraestrutura. Garante a integridade financeira do Motor de Rateio, permitindo auditorias exatas de meses anteriores sem que atualizações futuras de preço afetem o histórico consolidado.
@@ -268,7 +283,7 @@ Registro histórico e imutável do custo de energia repassado pela concessionár
 | 8 | 2026-06 | ENEL SP | 0.95 | Verde | 50.00 |
 > Relacionamentos: 1 : N Faturas (rastreabilidade histórica)
 
-<br>
+
 
 ### **Tabela: Fatura (Amostra do Rateio do Mês 06/2026)**  
 Transforma o consumo elétrico em valores monetários mensais auditáveis. Vinculada à Unidade, ela resolve o desafio principal do projeto: desvincular a energia da mobilidade elétrica das despesas comuns do condomínio, gerando uma taxa isolada e transparente.
@@ -279,12 +294,14 @@ Transforma o consumo elétrico em valores monetários mensais auditáveis. Vincu
 | 902 | 3 | 8 | 2026-06 | 250.5 | 237.97 | 50.00 | 287.97 | pago |
 > Relacionamentos: 1:N Sessões; N:1 Tarifa; N:1 Unidade
 
-<br>
+
 
 > 📁 **Nota Técnica:** O script SQL com a DDL e os comandos DML encontra-se no arquivo `database_goodwe.sql` na raiz deste repositório.
+</details>
 
 ---
-<br>
+
+<br> 
 
 ## 🏗️ 3. Arquitetura da Solução
 
