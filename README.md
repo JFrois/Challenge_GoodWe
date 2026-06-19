@@ -21,6 +21,8 @@ O crescimento exponencial da frota de veículos elétricos (VEs) no Brasil troux
 
 **A solução — EV ChargeOps:** plataforma que transforma dados brutos de sessões de recarga em inteligência acionável, automatizando o rateio por utilizador, calculando consumos exatos em kWh e aplicando Inteligência Artificial para previsão de demanda e deteção de anomalias.
 
+
+
 ### Desafios por Ambiente
 
 | Ambiente | Principais Desafios |
@@ -28,6 +30,8 @@ O crescimento exponencial da frota de veículos elétricos (VEs) no Brasil troux
 | Condomínio Residencial | Conflitos entre moradores; rateio de custos; poucas vagas; adaptação de prédios antigos |
 | Edifício Corporativo | Controle de acesso; uso simultâneo em horários de pico; integração com estacionamento |
 | Campus Universitário | Alta rotatividade; múltiplos pontos necessários; alto consumo em horários específicos |
+
+
 
 ### Fluxo Técnico de uma Sessão de Recarga
 
@@ -37,7 +41,9 @@ O crescimento exponencial da frota de veículos elétricos (VEs) no Brasil troux
 4. **Liberação de energia e monitoramento** — contatores fecham; fluxo AC/DC iniciado; dados enviados continuamente: potência (kW), energia acumulada (kWh), tensão, corrente, frequência
 5. **Encerramento** — bateria no limite ou desconexão; contatores abertos; pacote completo de dados enviado à nuvem
 
-**Dados gerados por sessão:**
+
+
+### Dados gerados por sessão
 
 | Categoria | Dados | Uso na Plataforma |
 | :--- | :--- | :--- |
@@ -45,6 +51,8 @@ O crescimento exponencial da frota de veículos elétricos (VEs) no Brasil troux
 | Temporais | Início, fim, duração | Análise de padrões de uso e picos de demanda |
 | Do utilizador | ID, método de autenticação, histórico | Vinculação da sessão ao rateio individualizado |
 | Operacionais | Status, falhas, ID do carregador, vaga | Auditoria e relatórios para o síndico |
+
+
 
 ### Modelos de Negócio Avaliados
 
@@ -59,7 +67,7 @@ O crescimento exponencial da frota de veículos elétricos (VEs) no Brasil troux
 
 
 ## 🔍 2. As Três Frentes de Pesquisa
-Para abranger toda a complexidade do desafio EV ChargeOps, nossa equipe optou por aprofundar a pesquisa nas seguintes frentes propostas pela FIAP:
+Para abranger toda a complexidade do desafio EV ChargeOps, nossa equipe optou por aprofundar a pesquisa nas seguintes frentes propostas:
 
 *   **Frente 1 (Contexto):** Opção A (Análise de Soluções) e Opção C (Dados Públicos Brasileiros).
 *   **Frente 2 (Regulação e Técnica):** Opção A (Mapeamento Regulatório), Opção B (API GoodWe) e Opção C (APIs Complementares).
@@ -81,6 +89,8 @@ Para abranger toda a complexidade do desafio EV ChargeOps, nossa equipe optou po
 | **Copel Telecom EV** | Rede pública de recarga no Paraná | Rede própria de eletropostos; pagamento via app | Pagamento por sessão | Focado em recarga pública; sem solução condominial |
 
 > **Oportunidade identificada:** nenhuma solução oferece, de forma integrada e acessível para o mercado condominial brasileiro, a combinação de rateio automático por kWh, integração com ANEEL, compatibilidade com GoodWe e IA para previsão e anomalias.
+
+
 
 ### Opção C — Análise de Dados Públicos: Cenário Brasileiro
 
@@ -110,16 +120,20 @@ Para abranger toda a complexidade do desafio EV ChargeOps, nossa equipe optou po
 
 A instalação requer também **comunicação prévia à distribuidora local (ENEL SP)** com projeto elétrico assinado por responsável técnico habilitado, informando o aumento de carga e a nova demanda contratada.
 
+
 ### Normas Técnicas Complementares
 
 - **ABNT NBR IEC 61851:** requisitos técnicos para sistemas de recarga condutiva de VEs — segurança, comunicação, conectores e proteção elétrica
 - **ABNT NBR 5410:** instalações elétricas de baixa tensão — dimensionamento de circuitos, proteção e aterramento
 - **Normas ENEL SP:** padrões próprios da concessionária para aumento de carga, conexão de carregadores e projetos elétricos
 
+
 ### Normas Estaduais e Municipais — São Paulo
 
 - **Lei Municipal de SP nº 17.336/2020:** proíbe síndicos e assembleias de impedir a instalação de carregadores por condôminos, desde que exista viabilidade técnica. Esta lei é um habilitador direto do mercado-alvo do EV ChargeOps, removendo a principal barreira jurídica à adoção
 - **IT-39 do Corpo de Bombeiros (PMESP):** regula a operação de VEs e estações de recarga em garagens e subsolos. Exige distanciamentos, exaustão, sinalização e desligamento automático em caso de incêndio. O EV ChargeOps pode integrar a interrupção de sessões via software ao acionar alarmes prediais
+
+
 
 ## Opção B — API GoodWe (SEMS Portal)
 
@@ -149,6 +163,8 @@ Exemplo de resposta JSON:
 | LAN / Wi-Fi | Conectividade para telemetria | Transmissão de dados de sessão para a nuvem |
 | Bluetooth | Configuração local via app | Comissionamento inicial do equipamento |
 | RFID | Leitura de tags de identificação | Autenticação física do utilizador na vaga |
+
+
 
 ## Opção C — APIs Externas Complementares
 
@@ -186,6 +202,8 @@ Valor_Total(u) = [Consumo_kWh(u) × Tarifa_efetiva_R$/kWh] + Taxa_infraestrutura
 - Meses sem recarga: utilizador paga apenas a cota condominial regular, sem acréscimo de energia
 - Tarifa variável: atualização automática via ANEEL Open Data a cada ciclo
 
+
+
 ## Opção B — Papel da Inteligência Artificial
 
 A IA é estrutural na otimização de custos, segurança e experiência do utilizador:
@@ -197,6 +215,8 @@ A IA é estrutural na otimização de custos, segurança e experiência do utili
 3. **k-means / DBSCAN — Clustering de Perfis de Uso:** segmenta utilizadores por padrão de recarga (ex.: "noturnos intensivos", "ocasionais de fim de semana", "diurnos em dias úteis"). Permite criar políticas diferenciadas por perfil para reduzir a demanda máxima
 
 4. **Chatbot Conversacional:** integrado a WhatsApp ou portal web, responde automaticamente a perguntas dos moradores: consumo do mês, valor da última fatura, melhor horário para carregar
+
+
 
 ## Opção C — Esquema Relacional da Base de Dados
 
@@ -295,17 +315,12 @@ Transforma o consumo elétrico em valores monetários mensais auditáveis. Vincu
 > Relacionamentos: 1:N Sessões; N:1 Tarifa; N:1 Unidade
 
 
-
-> 📁 **Nota Técnica:** O script SQL com a DDL e os comandos DML encontra-se no arquivo `database_goodwe.sql` na raiz deste repositório.
+> 📁 **Nota Técnica:** Acesse o [script SQL com DDL e DML aqui](./data/database_goodwe.sql).
 </details>
 
 ---
 
-<br> 
-
 ## 🏗️ 3. Arquitetura da Solução
-
-> O diagrama de arquitetura encontra-se no ficheiro `arquitetura.png` na raiz do repositório.
 
 ### Camadas da Plataforma
 
@@ -315,6 +330,8 @@ Transforma o consumo elétrico em valores monetários mensais auditáveis. Vincu
 | **Conectividade** | Wi-Fi do condomínio; RS-485; API SEMS; OCPP | Transmissão de telemetria e recepção de comandos |
 | **Aplicação** | Python (FastAPI/Flask); PostgreSQL; scikit-learn; motor de rateio | Processamento de JSONs, regras de rateio, modelos de IA, consolidação de faturas |
 | **Apresentação** | Dashboard web (síndico); WebApp/Mobile (morador) | Visualização de relatórios, alertas, previsões e faturas |
+
+
 
 ### Fluxo de Dados — Da Sessão à Fatura
 
@@ -339,6 +356,15 @@ Tag RFID ──► Autenticação backend ──► Sessão inicia
           Dashboard síndico                              App morador
         (relatório + alertas IA)                  (notificação + fatura)
 ```
+
+
+### Diagrama da Arquitetura
+
+![Diagrama da Arquitetura](./docs/arquitetura.png)
+
+
+
+> 📁 **Nota Técnica:** Acesse o [diagrama de arquitetura aqui](.docs/arquitetura.png). 
 
 ---
 
