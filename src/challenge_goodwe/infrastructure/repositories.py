@@ -89,11 +89,13 @@ class UsuarioRepository:
 
     def mapa_rfid(self) -> dict[str, tuple[int, int]]:
         """Devolve {rfid: (id_usuario, id_unidade)} para atribuir as sessoes."""
-        linhas = self._conn.execute("""
+        linhas = self._conn.execute(
+            """
             SELECT u.id_rfid, u.id_usuario, uu.id_unidade
             FROM Usuario u
             JOIN Unidade_Usuario uu ON uu.id_usuario = u.id_usuario
-            """).fetchall()
+            """
+        ).fetchall()
         return {r["id_rfid"]: (r["id_usuario"], r["id_unidade"]) for r in linhas}
 
     def mapa_carregadores(self) -> dict[str, int]:
@@ -133,16 +135,12 @@ class SessaoRepository:
                 sessao.dt_inicio.strftime("%Y-%m-%d %H:%M:%S"),
                 sessao.dt_fim.strftime("%Y-%m-%d %H:%M:%S") if sessao.dt_fim else None,
                 float(sessao.energia_kwh),
-                (
-                    float(sessao.potencia_media_kw)
-                    if sessao.potencia_media_kw is not None
-                    else None
-                ),
-                (
-                    float(sessao.potencia_max_kw)
-                    if sessao.potencia_max_kw is not None
-                    else None
-                ),
+                float(sessao.potencia_media_kw)
+                if sessao.potencia_media_kw is not None
+                else None,
+                float(sessao.potencia_max_kw)
+                if sessao.potencia_max_kw is not None
+                else None,
                 sessao.status_final,
             ),
         )
@@ -253,7 +251,9 @@ class SessaoRepository:
             [(id_fatura, i) for i in ids_sessoes],
         )
 
-    def gravar_avaliacao(self, id_sessao: int, score: float, is_anomaly: bool) -> None:
+    def gravar_avaliacao(
+        self, id_sessao: int, score: float, is_anomaly: bool
+    ) -> None:
         self._conn.execute(
             "UPDATE Sessao_Recarga SET anomaly_score = ?, is_anomaly = ? "
             "WHERE id_sessao = ?",

@@ -1,6 +1,8 @@
 # Decisões técnicas — núcleo e motor de rateio
 
-O conteúdo daqui deve ser incorporado ao README principal nas seções "Decisões técnicas" e "Desvios da Sprint 01", exigidas pela rubrica da Sprint 02.
+Documento da frente de backend (Juan). O conteúdo daqui deve ser incorporado
+ao README principal nas seções "Decisões técnicas" e "Desvios da Sprint 01",
+exigidas pela rubrica da Sprint 02.
 
 ---
 

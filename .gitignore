@@ -1,2 +1,32 @@
-.venv
+# Ambiente
+.venv/
 .env
+*.egg-info/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Banco local: gerado por `uv run evchargeops init-db`, nunca versionado.
+# Sem caminho fixo — cobre o banco onde quer que ele apareça, inclusive se
+# alguém acidentalmente recriar a pasta errada (foi o que aconteceu com o
+# src/data/goodwe_chargeops.db que vimos commitado).
+*.db
+*.db-journal
+*.sqlite3
+
+# Notebooks (se a Flávia usar um pra evidência)
+.ipynb_checkpoints/
+
+# Segredos do Streamlit, se algum dia existirem
+.streamlit/secrets.toml
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Editores
+.vscode/
+.idea/.env

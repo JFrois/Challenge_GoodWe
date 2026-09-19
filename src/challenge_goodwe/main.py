@@ -177,9 +177,7 @@ def construir_parser() -> argparse.ArgumentParser:
     p_fechar.add_argument(
         "--politica", choices=sorted(POLITICAS), default=POLITICA_PADRAO
     )
-    p_fechar.add_argument(
-        "--avaliador", choices=sorted(AVALIADORES), default="baseline"
-    )
+    p_fechar.add_argument("--avaliador", choices=sorted(AVALIADORES), default="baseline")
     p_fechar.add_argument(
         "--refazer", action="store_true", help="reabre um ciclo ja fechado"
     )
