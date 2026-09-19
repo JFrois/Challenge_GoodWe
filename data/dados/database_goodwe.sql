@@ -196,3 +196,27 @@ INSERT INTO Leitura_Medicao (id_leitura, id_sessao, timestamp, energia_acumulada
 (50013, 1003, '2026-06-17 15:15:00', 13.75, 11.0, '380V', '16A'),
 (50014, 1003, '2026-06-17 15:30:00', 16.5, 11.0, '380V', '16A'),
 (50015, 1003, '2026-06-17 15:45:00', 19.25, 11.0, '380V', '16A');
+
+-- ==========================================
+-- DDL & DML: RESERVA DE CARREGADORES (SPRINT 2)
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS Reserva_Carregador (
+    id_reserva INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_carregador INTEGER NOT NULL,
+    id_usuario INTEGER NOT NULL,
+    id_unidade INTEGER NOT NULL,
+    dt_inicio_agendado TIMESTAMP NOT NULL,
+    dt_fim_agendado TIMESTAMP NOT NULL,
+    status_reserva VARCHAR(20) NOT NULL DEFAULT 'pendente',
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_carregador) REFERENCES Carregador(id_carregador),
+    FOREIGN KEY (id_usuario) REFERENCES Usuario(id_usuario),
+    FOREIGN KEY (id_unidade) REFERENCES Unidade(id_unidade)
+);
+
+-- Dados simulados de reservas para testes no PWA/Streamlit
+INSERT INTO Reserva_Carregador (id_carregador, id_usuario, id_unidade, dt_inicio_agendado, dt_fim_agendado, status_reserva) VALUES 
+(5, 10, 1, '2026-09-20 20:00:00', '2026-09-20 23:00:00', 'pendente'),
+(5, 11, 2, '2026-09-21 08:00:00', '2026-09-21 11:00:00', 'pendente'),
+(6, 12, 3, '2026-09-21 14:00:00', '2026-09-21 17:00:00', 'pendente');
