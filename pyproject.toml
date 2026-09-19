@@ -1,23 +1,42 @@
 [project]
 name = "challenge-goodwe"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.2.0"
+description = "EV ChargeOps - gestao de recarga compartilhada de veiculos eletricos (Enterprise Challenge 2026, FIAP + GoodWe)"
 readme = "README.md"
-authors = [
-    { name = "JFrois", email = "juan.frois9@gmail.com" }
-]
 requires-python = ">=3.12"
+authors = [
+    { name = "Juan de Lucas Frois", email = "juan.frois9@gmail.com" },
+    { name = "Flavia Roberta Pennachin" },
+    { name = "Pedro Valente Toledo" },
+]
 dependencies = [
-    "matplotlib>=3.11.2",
-    "numpy>=2.5.3",
-    "pandas>=3.0.6",
-    "scikit-learn>=1.9.1",
-    "streamlit>=1.64.0",
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "scikit-learn>=1.4",
+    "streamlit>=1.35",
+    "matplotlib>=3.8",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
 ]
 
 [project.scripts]
-challenge-goodwe = "challenge_goodwe:main"
+evchargeops = "challenge_goodwe.main:main"
 
 [build-system]
 requires = ["uv_build>=0.12.17,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 90
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

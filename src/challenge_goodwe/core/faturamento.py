@@ -86,9 +86,7 @@ class MotorDeFaturamento:
 
     # ------------------------------------------------------------------ #
 
-    def fechar_periodo(
-        self, periodo: str, refazer: bool = False
-    ) -> ResultadoFechamento:
+    def fechar_periodo(self, periodo: str, refazer: bool = False) -> ResultadoFechamento:
         validar_periodo(periodo)
 
         existentes = self._faturas.contar_do_periodo(periodo)
@@ -96,9 +94,7 @@ class MotorDeFaturamento:
             raise FaturaJaFechadaError(periodo, existentes)
         if existentes and refazer:
             removidas = self._faturas.remover_periodo(periodo)
-            logger.info(
-                "Ciclo %s reaberto: %d fatura(s) removida(s)", periodo, removidas
-            )
+            logger.info("Ciclo %s reaberto: %d fatura(s) removida(s)", periodo, removidas)
 
         tarifa = self._tarifas.por_periodo(periodo)
         resultado = ResultadoFechamento(periodo=periodo, politica=self._politica.nome)
