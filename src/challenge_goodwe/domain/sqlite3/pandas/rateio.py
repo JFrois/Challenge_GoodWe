@@ -1,47 +1,100 @@
-import pandas as pd
-from challenge_goodwe.database.db import get_connection
+"""Motor de rateio — politicas de cobranca.
+
+A Sprint 01 comparou cinco modelos de cobranca e adotou o rateio proporcional
+por kWh. Aqui esse comparativo vira codigo: cada modelo e uma implementacao do
+protocolo PoliticaRateio (padrao Strategy). Trocar a politica de cobranca do
+condominio nao exige tocar no motor de faturamento — o que era exatamente o
+objetivo do benchmarking.
+"""
+
+from __future__ import annotations
+
+from decimal import Decimal
+from typing import Protocol, runtime_checkable
+
+from ..config import ENERGIA_MINIMA_FATURAVEL_KWH
+from .models import ConsumoUnidade, Tarifa, ValorFatura, decimal_para_centavos
 
 
-class MotorRateio:
-    def __init__(self):
-        self.conn = get_connection()
+@runtime_checkable
+class PoliticaRateio(Protocol):
+    """Contrato de uma politica de cobranca.
 
-    def calcular_faturas_mes(self, periodo: str, id_tarifa: int):
-        # 1. Pega os valores da tarifa vigente (kWh e taxa fixa)
-        tarifa = pd.read_sql(
-            "SELECT * FROM Tarifa WHERE id_tarifa = ?", self.conn, params=(id_tarifa,)
-        ).iloc[0]
-        valor_kwh = tarifa["valor_kwh_efetivo"]
-        taxa_infra = tarifa["taxa_infraestrutura"]
+    Recebe o consumo agregado de uma unidade e a tarifa vigente; devolve o
+    valor a cobrar. Nao acessa banco, nao tem efeito colateral.
+    """
 
-        # 2. Soma o consumo em kWh por unidade no período selecionado
-        query_sessoes = """
-        SELECT 
-            s.id_unidade,
-            SUM(s.energia_kwh) as total_kwh
-        FROM Sessao_Recarga s
-        WHERE strftime('%Y-%m', s.dt_inicio) = ? AND s.status_final = 'concluida'
-        GROUP BY s.id_unidade
-        """
-        consumo_unidades = pd.read_sql(query_sessoes, self.conn, params=(periodo,))
+    nome: str
 
-        faturas = []
-        for _, row in consumo_unidades.iterrows():
-            total_kwh = float(row["total_kwh"])
-            valor_variavel = round(total_kwh * valor_kwh, 2)
-            valor_total = round(valor_variavel + taxa_infra, 2)
+    def calcular(self, consumo: ConsumoUnidade, tarifa: Tarifa) -> ValorFatura: ...
 
-            faturas.append(
-                {
-                    "id_unidade": int(row["id_unidade"]),
-                    "id_tarifa": id_tarifa,
-                    "periodo": periodo,
-                    "energia_total_kwh": total_kwh,
-                    "valor_variavel": valor_variavel,
-                    "valor_taxa": taxa_infra,
-                    "valor_total": valor_total,
-                    "status_pgto": "pendente",
-                }
-            )
 
-        return faturas
+class RateioProporcionalKwh:
+    """Modelo ADOTADO na Sprint 01.
+
+        valor = (kWh consumido x custo efetivo do kWh) + taxa de infraestrutura
+
+    Regras excepcionais tratadas aqui, conforme documentado na Sprint 01:
+
+    - Sessao interrompida: cobra a energia efetivamente entregue, sem
+      penalidade. O filtro de status acontece na consulta; o valor entra
+      normalmente no agregado.
+    - Consumo irrisorio (abaixo de ENERGIA_MINIMA_FATURAVEL_KWH): nao gera
+      cobranca nenhuma, nem a taxa fixa. Cobre o plugue que solta sozinho.
+    - Taxa de infraestrutura no modelo 'pay as you go': so incide sobre quem
+      teve ao menos uma sessao faturavel no periodo. Quem nao carregou nao
+      recebe fatura.
+    """
+
+    nome = "proporcional_kwh"
+
+    def calcular(self, consumo: ConsumoUnidade, tarifa: Tarifa) -> ValorFatura:
+        if consumo.energia_kwh < ENERGIA_MINIMA_FATURAVEL_KWH:
+            return ValorFatura(valor_variavel_centavos=0, valor_taxa_centavos=0)
+
+        variavel = decimal_para_centavos(consumo.energia_kwh * tarifa.custo_kwh)
+        return ValorFatura(
+            valor_variavel_centavos=variavel,
+            valor_taxa_centavos=tarifa.taxa_infraestrutura_centavos,
+        )
+
+
+class RateioTaxaFixaComFranquia:
+    """Modelo ALTERNATIVO do benchmarking (Modelo 2 da Sprint 01).
+
+    Mensalidade fixa com franquia de kWh; o excedente e cobrado por kWh.
+    Mantido implementado para que o comparativo da Sprint 01 possa ser
+    demonstrado com numeros reais, nao apenas descrito em tabela.
+    """
+
+    nome = "taxa_fixa_com_franquia"
+
+    def __init__(
+        self,
+        mensalidade_centavos: int = 12000,
+        franquia_kwh: Decimal = Decimal("50"),
+    ) -> None:
+        self.mensalidade_centavos = mensalidade_centavos
+        self.franquia_kwh = franquia_kwh
+
+    def calcular(self, consumo: ConsumoUnidade, tarifa: Tarifa) -> ValorFatura:
+        if consumo.energia_kwh < ENERGIA_MINIMA_FATURAVEL_KWH:
+            return ValorFatura(valor_variavel_centavos=0, valor_taxa_centavos=0)
+
+        excedente = max(Decimal("0"), consumo.energia_kwh - self.franquia_kwh)
+        return ValorFatura(
+            valor_variavel_centavos=decimal_para_centavos(excedente * tarifa.custo_kwh),
+            valor_taxa_centavos=self.mensalidade_centavos,
+        )
+
+
+POLITICAS: dict[str, PoliticaRateio] = {
+    RateioProporcionalKwh.nome: RateioProporcionalKwh(),
+    RateioTaxaFixaComFranquia.nome: RateioTaxaFixaComFranquia(),
+}
+
+POLITICA_PADRAO = RateioProporcionalKwh.nome
+
+
+def obter_politica(nome: str | None = None) -> PoliticaRateio:
+    return POLITICAS[nome or POLITICA_PADRAO]
