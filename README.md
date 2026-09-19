@@ -395,3 +395,72 @@ Tag RFID ──► Autenticação backend ──► Sessão inicia
 - OPEN CHARGE ALLIANCE. **OCPP — Open Charge Point Protocol**. Disponível em: openchargealliance.org
 - WALLBOX. **Charging Session Statistics — MyWallbox App**. Disponível em: support.wallbox.com
 - NEOCHARGE. **Smart Splitter**. Disponível em: getneocharge.com
+
+# Estrutura projeto
+
+````
+Challenge_GoodWe/
+│
+├── pyproject.toml            # dependências, entry point (uv run evchargeops)
+├── uv.lock
+├── .python-version
+├── .gitignore
+├── .env.example              # placeholder de credenciais SEMS — nunca .env real
+├── README.md                 # visão geral, instruções, decisões, desvios da Sprint 01
+│
+├── src/challenge_goodwe/
+│   ├── __init__.py
+│   ├── config.py              # caminhos e constantes de negócio — 1 lugar só
+│   ├── logging_config.py
+│   ├── main.py                 # CLI: orquestra tudo (ponto de entrada único)
+│   ├── services.py             # consultas prontas para o dashboard e datasets p/ IA
+│   │
+│   ├── domain/                 # regras de negócio puras — zero import de sqlite3/pandas
+│   │   ├── models.py           # entidades (Sessao, Fatura, Tarifa...)
+│   │   ├── rateio.py           # políticas de cobrança (Strategy)
+│   │   ├── avaliacao.py        # CONTRATO do módulo de IA
+│   │   └── exceptions.py
+│   │
+│   ├── infrastructure/         # todo o SQL do projeto vive aqui, e só aqui
+│   │   ├── db.py               # conexão + transação (unidade de trabalho)
+│   │   ├── repositories.py     # tradução tabela <-> objeto de domínio
+│   │   └── seed.py             # criação e carga do banco
+│   │
+│   ├── integracao/
+│   │   └── sems.py             # adaptador da API GoodWe (mock + contrato real)
+│   │
+│   ├── core/                   # serviços de aplicação (orquestração)
+│   │   ├── ingestao.py         # payload GoodWe -> sessão atribuída
+│   │   └── faturamento.py      # fecha o ciclo: rateio + IA + alertas
+│   │
+│   ├── ai/                     # ← PASTA DO PEDRO (ainda não existe, ele cria)
+│   │   ├── anomaly_detector.py    # implementa AvaliadorDeSessao com Isolation Forest
+│   │   ├── demand_forecaster.py   # regressão de previsão de demanda
+│   │   └── treino.py              # script de treino + métricas (MAE, RMSE, matriz de confusão)
+│   │
+│   └── ui/                     # ← PASTA DA FLÁVIA (ainda não existe, ela cria)
+│       └── app.py              # dashboard Streamlit (consome services.py)
+│
+├── scripts/
+│   └── gerar_dataset.py        # massa sintética p/ treinar a IA
+│
+├── data/
+│   ├── dados/
+│   │   └── database_goodwe.sql # schema + seed — única fonte de verdade do banco
+│   ├── mock/
+│   │   └── sessoes_sems.json   # payload de exemplo da API GoodWe
+│   └── goodwe_chargeops.db     # gerado em runtime —  versionado (está no .gitignore)
+│
+├── docs/
+│   ├── DECISOES_TECNICAS.md    # seção de backend
+│   ├── arquitetura.png
+│   ├── diagrama_bd_goodwe.png
+│   └── evidencias/              # screenshots, prints de terminal
+│
+└── tests/                       # espelha a estrutura de src/
+    ├── conftest.py              # fixture: banco em memória a partir do schema real
+    ├── test_rateio.py
+    ├── test_faturamento.py
+    ├── test_ingestao.py
+    └── test_ai.py
+````
