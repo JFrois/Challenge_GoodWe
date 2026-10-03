@@ -1,0 +1,15 @@
+{
+  "title": "EV ChargeOps",
+  "description": "Streamline electric vehicle charging management for condominiums with real-time dashboards, reservation systems, and AI assistance for administrators and residents.",
+  "language": "pt-BR",
+  "icons": {
+    "icon": "/icons/chargeops-192.png"
+  },
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

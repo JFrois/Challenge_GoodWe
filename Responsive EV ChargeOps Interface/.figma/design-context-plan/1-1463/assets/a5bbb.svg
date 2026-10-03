@@ -1,0 +1,17 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="22" height="22.6168" viewBox="0 0 22 22.6168" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="logo-jira">
+<path id="Shape" fill-rule="evenodd" clip-rule="evenodd" d="M11.9471 0.943041L21.7339 10.6753C21.9042 10.8435 22 11.0723 22 11.3109C22 11.5496 21.9042 11.7784 21.7339 11.9465L18.4798 15.1775L18.365 15.2906L10.9988 22.6168L6.99335 18.6346L0.262735 11.9415C-0.0875783 11.5913 -0.0875783 11.0255 0.262735 10.6753L3.63159 7.32623L10.9988 0L11.9471 0.943041ZM7.63605 11.3084L10.9988 14.6525L14.3606 11.3084L10.9988 7.96435L7.63605 11.3084Z" fill="#2684FF"/>
+<path id="Path" d="M10.8972 7.9456C8.68979 5.75439 8.67887 2.20456 10.8728 0L3.49533 7.32196L7.51031 11.3084L10.8972 7.9456Z" fill="url(#paint0_linear_0_231)"/>
+<path id="Path_2" d="M14.2788 11.3084L10.8972 14.6595C13.1148 16.857 13.1148 20.4193 10.8972 22.6168L18.2991 15.2881L14.2788 11.3084Z" fill="url(#paint1_linear_0_231)"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_0_231" x1="8.76393" y1="0.961964" x2="3.09358" y2="3.37352" gradientUnits="userSpaceOnUse">
+<stop offset="0.18" stop-color="#0052CC"/>
+<stop offset="1" stop-color="#2684FF"/>
+</linearGradient>
+<linearGradient id="paint1_linear_0_231" x1="10.0169" y1="12.2623" x2="15.6757" y2="14.6635" gradientUnits="userSpaceOnUse">
+<stop offset="0.18" stop-color="#0052CC"/>
+<stop offset="1" stop-color="#2684FF"/>
+</linearGradient>
+</defs>
+</svg>
