@@ -2,6 +2,8 @@ import {
   AlertTriangle,
   BatteryCharging,
   Bolt,
+  Calendar,
+  CalendarDays,
   CheckCircle2,
   CircleDollarSign,
   Clock3,
@@ -10,6 +12,7 @@ import {
   Filter,
   Gauge,
   Leaf,
+  Loader2,
   MoreHorizontal,
   Power,
   Search,
@@ -18,7 +21,12 @@ import {
   Wrench,
   Zap,
 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import {
+  cancelReservationApi,
+  fetchReservations,
+  markInvoicePaid,
+} from "@/data/apiClient"
 import { EnergyAreaChart } from "@/components/Charts"
 import MetricCard from "@/components/MetricCard"
 import {
@@ -45,15 +53,21 @@ const statusMap: Record<ChargerStatus, {
 }
 
 export function AdminOverview() {
-  const { chargers, sessions, bookings } = useAppState()
+  const { chargers, sessions, bookings, charges, adminMetrics } = useAppState()
   const active = chargers.filter((item) => item.status !== "offline").length
-  const occupancy = Math.round(
-    (chargers.filter(
-      (item) => item.status === "charging" || item.status === "reserved",
-    ).length /
-      chargers.length) *
-      100,
-  )
+  const occupancy = chargers.length > 0
+    ? Math.round(
+        (chargers.filter(
+          (item) => item.status === "charging" || item.status === "reserved",
+        ).length /
+          chargers.length) *
+          100,
+      )
+    : 0
+
+  const totalEnergy = adminMetrics?.totalEnergy ?? charges.reduce((acc, c) => acc + (c.energy || 0), 0)
+  const totalRevenue = adminMetrics?.totalRevenue ?? charges.reduce((acc, c) => acc + (c.amount || 0), 0)
+  const offlineChargers = chargers.filter((c) => c.status === "offline")
 
   return (
     <div className="space-y-6">
@@ -89,31 +103,31 @@ export function AdminOverview() {
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           accent="teal"
-          change="+1 unidade"
+          change={`${chargers.length - active} em manutenção`}
           icon={Zap}
           label="Carregadores ativos"
           value={`${active}/${chargers.length}`}
         />
         <MetricCard
           accent="cyan"
-          change="+8,2%"
+          change={`${charges.length} unidades`}
           icon={BatteryCharging}
           label="Energia no mês"
-          value="1.284 kWh"
+          value={`${totalEnergy.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh`}
         />
         <MetricCard
           accent="orange"
-          change="+4,1%"
+          change="Em tempo real"
           icon={UsersRound}
           label="Taxa de ocupação"
           value={`${occupancy}%`}
         />
         <MetricCard
           accent="brand"
-          change="+11,6%"
+          change={`${charges.filter((c) => c.status === "paid").length} pagas`}
           icon={CircleDollarSign}
           label="Receita rateada"
-          value="R$ 1.516"
+          value={`R$ ${totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
         />
       </section>
 
@@ -148,7 +162,7 @@ export function AdminOverview() {
             <div>
               <Heading level={2}>Status da rede</Heading>
               <p className="mt-1 text-sm text-ink-subtle">
-                5 pontos monitorados
+                {chargers.length} pontos monitorados
               </p>
             </div>
             <div className="flex size-11 items-center justify-center rounded-xl bg-success/10 text-success">
@@ -183,7 +197,7 @@ export function AdminOverview() {
                     <div
                       className={`h-full rounded-full ${colors[status]}`}
                       style={{
-                        width: `${Math.max((count / chargers.length) * 100, 3)}%`,
+                        width: `${Math.max((count / (chargers.length || 1)) * 100, 3)}%`,
                       }}
                     />
                   </div>
@@ -191,22 +205,47 @@ export function AdminOverview() {
               )
             })}
           </div>
-          <div className="mt-6 rounded-xl border border-warning/20 bg-warning/5 p-3">
-            <div className="flex gap-3">
-              <AlertTriangle
-                className="mt-0.5 shrink-0 text-warning"
-                size={18}
-              />
-              <div>
-                <p className="text-sm font-bold text-ink">
-                  Manutenção preventiva
-                </p>
-                <p className="mt-1 text-xs leading-5 text-ink-muted">
-                  ChargePoint C1 requer inspeção do conector.
-                </p>
+          {offlineChargers.length > 0 ? (
+            <div className="mt-6 rounded-xl border border-warning/20 bg-warning/5 p-3.5">
+              <div className="flex gap-3">
+                <AlertTriangle
+                  className="mt-0.5 shrink-0 text-warning"
+                  size={18}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-ink">
+                    {offlineChargers.length === 1
+                      ? "1 ponto em manutenção"
+                      : `${offlineChargers.length} pontos em manutenção`}
+                  </p>
+                  <div className="mt-1.5 space-y-1 text-xs text-ink-muted">
+                    {offlineChargers.map((c) => (
+                      <p key={c.id}>
+                        <strong className="text-ink">{c.name}</strong> ({c.location}): {c.nextAvailable && c.nextAvailable !== "Agora" ? c.nextAvailable : "Em manutenção preventiva"}
+                      </p>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="mt-6 rounded-xl border border-success/20 bg-success/5 p-3.5">
+              <div className="flex items-center gap-3">
+                <CheckCircle2
+                  className="shrink-0 text-success"
+                  size={18}
+                />
+                <div>
+                  <p className="text-sm font-bold text-ink">
+                    Rede 100% operacional
+                  </p>
+                  <p className="mt-0.5 text-xs text-ink-muted">
+                    Nenhum ponto em manutenção. Todos os {chargers.length} carregadores estão online.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </Card>
       </section>
 
@@ -289,10 +328,66 @@ export function AdminOverview() {
 }
 
 export function AdminOperations() {
-  const { chargers, dispatch, notify } = useAppState()
+  const { chargers, dispatch, notify, authToken, refreshData } = useAppState()
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState<ChargerStatus | "all">("all")
   const [selected, setSelected] = useState<Charger | null>(null)
+  const [chargerBookings, setChargerBookings] = useState<any[]>([])
+  const [loadingBookings, setLoadingBookings] = useState(false)
+  const [cancelingBookingId, setCancelingBookingId] = useState<string | number | null>(null)
+
+  useEffect(() => {
+    if (!selected) {
+      setChargerBookings([])
+      return
+    }
+    let active = true
+    const load = async () => {
+      setLoadingBookings(true)
+      try {
+        const chargerNumericId = selected.id.replace("ch-", "")
+        const data = await fetchReservations(authToken || "", chargerNumericId)
+        if (active) {
+          setChargerBookings(data)
+        }
+      } catch (e) {
+        console.error("Erro ao buscar agendamentos do carregador:", e)
+      } finally {
+        if (active) setLoadingBookings(false)
+      }
+    }
+    load()
+    return () => {
+      active = false
+    }
+  }, [selected, authToken])
+
+  const handleCancelBooking = async (idReserva: number | string) => {
+    setCancelingBookingId(idReserva)
+    try {
+      if (authToken) {
+        await cancelReservationApi(authToken, idReserva)
+      }
+      setChargerBookings((prev) =>
+        prev.map((b) =>
+          b.id_reserva === idReserva
+            ? { ...b, status_reserva: "cancelada" }
+            : b,
+        ),
+      )
+      dispatch({ type: "cancel-booking", id: String(idReserva) })
+      notify("Agendamento cancelado com sucesso.", "info")
+      await refreshData()
+    } catch (err: any) {
+      notify(
+        `Erro ao cancelar agendamento: ${err?.message || "falha na requisição"}`,
+        "danger",
+      )
+    } finally {
+      setCancelingBookingId(null)
+    }
+  }
+
   const filtered = useMemo(
     () =>
       chargers.filter(
@@ -359,7 +454,11 @@ export function AdminOperations() {
       </Card>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {filtered.map((charger) => (
-          <Card key={charger.id} className="overflow-hidden">
+          <Card
+            key={charger.id}
+            className="group cursor-pointer overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-md"
+            onClick={() => setSelected(charger)}
+          >
             <div
               className={`h-1.5 ${
                 charger.status === "available"
@@ -386,7 +485,10 @@ export function AdminOperations() {
                 </div>
                 <Button
                   aria-label={`Detalhes de ${charger.name}`}
-                  onClick={() => setSelected(charger)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setSelected(charger)
+                  }}
                   size="icon"
                   variant="ghost"
                 >
@@ -459,6 +561,129 @@ export function AdminOperations() {
                 )}
               </div>
             )}
+
+            {/* Agendamentos para este carregador */}
+            <div className="space-y-3 rounded-xl border border-line p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="text-brand" size={18} />
+                  <h4 className="text-sm font-bold text-ink">
+                    Agendamentos neste carregador
+                  </h4>
+                </div>
+                <span className="text-xs font-medium text-ink-subtle">
+                  {
+                    chargerBookings.filter(
+                      (b) => b.status_reserva !== "cancelada",
+                    ).length
+                  }{" "}
+                  ativo(s)
+                </span>
+              </div>
+
+              {loadingBookings ? (
+                <div className="flex items-center justify-center py-6 text-xs text-ink-subtle">
+                  <Loader2 className="mr-2 animate-spin text-brand" size={18} />
+                  Carregando agendamentos...
+                </div>
+              ) : chargerBookings.length === 0 ? (
+                <p className="py-2 text-xs text-ink-subtle">
+                  Nenhum agendamento futuro encontrado para este carregador.
+                </p>
+              ) : (
+                <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                  {chargerBookings.map((b) => {
+                    const isCancelled = b.status_reserva === "cancelada"
+                    const isCompleted = b.status_reserva === "concluida"
+                    const canCancel = !isCancelled && !isCompleted
+
+                    const start = b.dt_inicio_agendado
+                      ? new Date(b.dt_inicio_agendado)
+                      : null
+                    const end = b.dt_fim_agendado
+                      ? new Date(b.dt_fim_agendado)
+                      : null
+                    const dateStr = start
+                      ? start.toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })
+                      : ""
+                    const timeStr =
+                      start && end
+                        ? `${start.toLocaleTimeString("pt-BR", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })} - ${end.toLocaleTimeString("pt-BR", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}`
+                        : ""
+
+                    return (
+                      <div
+                        key={b.id_reserva}
+                        className={`flex flex-col gap-2 rounded-lg border p-3 text-xs transition sm:flex-row sm:items-center sm:justify-between ${
+                          isCancelled
+                            ? "border-line bg-surface-muted/30 opacity-60"
+                            : "border-line bg-surface-muted/60"
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-bold text-ink">
+                              {b.usuario_nome ||
+                                `Morador (${b.unidade_cd || "Unidade"})`}
+                            </span>
+                            {b.unidade_cd && (
+                              <span className="rounded border border-line bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-ink-muted">
+                                Unidade {b.unidade_cd}
+                              </span>
+                            )}
+                            <StatusBadge
+                              tone={
+                                isCancelled
+                                  ? "danger"
+                                  : isCompleted
+                                    ? "success"
+                                    : "warning"
+                              }
+                            >
+                              {isCancelled
+                                ? "Cancelado"
+                                : isCompleted
+                                  ? "Concluído"
+                                  : "Agendado"}
+                            </StatusBadge>
+                          </div>
+                          <p className="mt-1 text-ink-subtle">
+                            {dateStr} às {timeStr}
+                            {b.usuario_telefone &&
+                              ` · Tel: ${b.usuario_telefone}`}
+                          </p>
+                        </div>
+
+                        {canCancel && (
+                          <Button
+                            className="shrink-0 self-end text-xs text-danger hover:bg-danger/10 hover:text-danger sm:self-center"
+                            disabled={cancelingBookingId === b.id_reserva}
+                            onClick={() => handleCancelBooking(b.id_reserva)}
+                            size="sm"
+                            variant="secondary"
+                          >
+                            {cancelingBookingId === b.id_reserva
+                              ? "Cancelando..."
+                              : "Cancelar agendamento"}
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
             <div className="flex flex-col gap-2 sm:flex-row">
               {selected.status === "charging" && (
                 <Button
@@ -474,22 +699,40 @@ export function AdminOperations() {
               )}
               <Button
                 className="flex-1"
-                onClick={() => {
-                  dispatch({ type: "toggle-maintenance", id: selected.id })
-                  notify(
-                    selected.status === "offline"
-                      ? "Ponto reativado."
-                      : "Ponto colocado em manutenção.",
-                    "info",
-                  )
+                onClick={async () => {
+                  const newStatus =
+                    selected.status === "offline" ? "online" : "offline"
+                  try {
+                    await fetch(
+                      `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/admin/carregadores/${selected.id.replace("ch-", "")}/status`,
+                      {
+                        method: "PUT",
+                        headers: {
+                          Authorization: `Bearer ${authToken}`,
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ status: newStatus }),
+                      },
+                    )
+                    dispatch({ type: "toggle-maintenance", id: selected.id })
+                    notify(
+                      newStatus === "online"
+                        ? "Ponto reativado."
+                        : "Ponto colocado em manutenção.",
+                      "info",
+                    )
+                    await refreshData()
+                  } catch (e) {
+                    console.error(e)
+                  }
                   setSelected(null)
                 }}
-                variant="secondary"
+                variant={selected.status === "offline" ? "primary" : "secondary"}
               >
                 <Wrench size={18} />{" "}
                 {selected.status === "offline"
                   ? "Reativar ponto"
-                  : "Manutenção"}
+                  : "Colocar em manutenção"}
               </Button>
             </div>
           </div>
@@ -500,7 +743,28 @@ export function AdminOperations() {
 }
 
 export function AdminBilling() {
-  const { charges, dispatch, notify } = useAppState()
+  const { charges, dispatch, notify, authToken, refreshData } = useAppState()
+  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null)
+
+  const handleMarkPaid = async (chargeId: string) => {
+    setMarkingPaidId(chargeId)
+    try {
+      if (authToken) {
+        await markInvoicePaid(authToken, chargeId)
+      }
+      dispatch({ type: "mark-paid", id: chargeId })
+      notify("Pagamento confirmado e salvo com sucesso.", "success")
+      await refreshData()
+    } catch (err: any) {
+      notify(
+        `Erro ao registrar pagamento: ${err?.message || "falha na requisição"}`,
+        "danger",
+      )
+    } finally {
+      setMarkingPaidId(null)
+    }
+  }
+
   const total = charges.reduce((sum, item) => sum + item.amount, 0)
   const paid = charges
     .filter((item) => item.status === "paid")
@@ -601,14 +865,14 @@ export function AdminBilling() {
                   <td className="px-5 py-4 text-right">
                     {charge.status !== "paid" && (
                       <Button
-                        onClick={() => {
-                          dispatch({ type: "mark-paid", id: charge.id })
-                          notify("Pagamento confirmado.")
-                        }}
+                        disabled={markingPaidId === charge.id}
+                        onClick={() => handleMarkPaid(charge.id)}
                         size="sm"
                         variant="secondary"
                       >
-                        Marcar pago
+                        {markingPaidId === charge.id
+                          ? "Salvando..."
+                          : "Marcar pago"}
                       </Button>
                     )}
                   </td>
@@ -649,14 +913,14 @@ export function AdminBilling() {
                 </p>
                 {charge.status !== "paid" && (
                   <Button
-                    onClick={() => {
-                      dispatch({ type: "mark-paid", id: charge.id })
-                      notify("Pagamento confirmado.")
-                    }}
+                    disabled={markingPaidId === charge.id}
+                    onClick={() => handleMarkPaid(charge.id)}
                     size="sm"
                     variant="secondary"
                   >
-                    Marcar pago
+                    {markingPaidId === charge.id
+                      ? "Salvando..."
+                      : "Marcar pago"}
                   </Button>
                 )}
               </div>
@@ -667,3 +931,6 @@ export function AdminBilling() {
     </div>
   )
 }
+
+export * from './AdminResidents';
+export * from './AdminSettings';

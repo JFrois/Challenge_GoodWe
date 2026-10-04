@@ -46,9 +46,15 @@ export type Charge = {
   status: "paid" | "pending" | "overdue"
 }
 
+export type AssistantAction = {
+  label: string
+  path: string
+}
+
 export type AssistantMessage = {
   id: string
   sender: "assistant" | "user"
   text: string
   timestamp: string
+  actions?: AssistantAction[]
 }

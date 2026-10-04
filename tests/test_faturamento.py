@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from sqlalchemy import text
 from decimal import Decimal
 
 import pytest
@@ -63,8 +64,8 @@ def test_dois_veiculos_na_mesma_unidade_somam_na_mesma_fatura(conexao):
     assert fatura.energia_total_kwh == Decimal("124.00")
 
     usuarios = conexao.execute(
-        "SELECT COUNT(DISTINCT id_usuario) FROM Sessao_Recarga WHERE id_fatura = ?",
-        (fatura.id_fatura,),
+        text("SELECT COUNT(DISTINCT id_usuario) FROM Sessao_Recarga WHERE id_fatura = :id"),
+        {"id": fatura.id_fatura},
     ).fetchone()[0]
     assert usuarios == 2, "o historico por usuario deve continuar separado"
 

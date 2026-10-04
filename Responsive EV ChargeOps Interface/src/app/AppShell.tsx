@@ -40,40 +40,22 @@ const titles: Record<string, string> = {
   "/admin/overview": "Central de operações",
   "/admin/operations": "Carregadores e sessões",
   "/admin/billing": "Gestão financeira",
-  "/resident/overview": "Olá, Ana",
+  "/admin/residents": "Gerenciar moradores",
+  "/admin/settings": "Configurações do sistema",
+  "/resident/overview": "Início",
   "/resident/chargers": "Encontrar carregador",
   "/resident/bookings": "Minhas reservas",
   "/resident/usage": "Meu consumo",
+  "/resident/profile": "Meu perfil e veículo",
 }
 
 export default function AppShell() {
-  const { role, dispatch, notify } = useAppState()
+  const { role, username, userName, dispatch, notify, isLoading, error } = useAppState()
   const [mobileMenu, setMobileMenu] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const navItems = role === "admin" ? adminNav : residentNav
-
-  useEffect(() => {
-    if (location.pathname.startsWith("/admin") && role !== "admin") {
-      dispatch({ type: "set-role", role: "admin" })
-    }
-    if (location.pathname.startsWith("/resident") && role !== "resident") {
-      dispatch({ type: "set-role", role: "resident" })
-    }
-  }, [dispatch, location.pathname, role])
-
-  const switchRole = () => {
-    const nextRole = role === "admin" ? "resident" : "admin"
-    dispatch({ type: "set-role", role: nextRole })
-    navigate(nextRole === "admin" ? "/admin/overview" : "/resident/overview")
-    notify(
-      `Perfil alterado para ${
-        nextRole === "admin" ? "Administrador" : "Morador"
-      }`,
-      "info",
-    )
-  }
 
   return (
     <div className="min-h-dvh bg-app text-ink">
@@ -118,27 +100,61 @@ export default function AppShell() {
               {!collapsed && <span>{label}</span>}
             </NavLink>
           ))}
-          <div className="my-4 border-t border-white/8" />
-          <div className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold text-slate-500">
-            <UsersRound size={20} />
-            {!collapsed && <span>Moradores</span>}
-          </div>
-          <div className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold text-slate-500">
-            <Settings size={20} />
-            {!collapsed && <span>Configurações</span>}
-          </div>
         </nav>
+
+        <div className="p-3">
+          <div className="my-2 border-t border-white/8" />
+          {role === "admin" ? (
+            <>
+              <NavLink
+                to="/admin/residents"
+                className={({ isActive }) =>
+                  `flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors ${
+                    isActive ? "bg-brand/10 text-brand" : "text-slate-400 hover:bg-white/5 hover:text-white"
+                  }`
+                }
+              >
+                <UsersRound size={20} />
+                {!collapsed && <span>Moradores</span>}
+              </NavLink>
+              <NavLink
+                to="/admin/settings"
+                className={({ isActive }) =>
+                  `flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors ${
+                    isActive ? "bg-brand/10 text-brand" : "text-slate-400 hover:bg-white/5 hover:text-white"
+                  }`
+                }
+              >
+                <Settings size={20} />
+                {!collapsed && <span>Configurações</span>}
+              </NavLink>
+            </>
+          ) : (
+            <NavLink
+              to="/resident/profile"
+              className={({ isActive }) =>
+                `flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors ${
+                  isActive ? "bg-brand/10 text-brand" : "text-slate-400 hover:bg-white/5 hover:text-white"
+                }`
+              }
+            >
+              <UserRound size={20} />
+              {!collapsed && <span>Meu Perfil</span>}
+            </NavLink>
+          )}
+        </div>
 
         <div className="border-t border-white/8 p-3">
           <Button
             className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10"
-            onClick={switchRole}
+            onClick={() => {
+              dispatch({ type: "logout" })
+              navigate("/login")
+            }}
             variant="secondary"
           >
-            <UserRound size={18} />
-            {!collapsed && (
-              <span>Ver como {role === "admin" ? "morador" : "admin"}</span>
-            )}
+            <LogOut size={18} />
+            {!collapsed && <span>Sair da conta</span>}
           </Button>
         </div>
         <Button
@@ -196,14 +212,59 @@ export default function AppShell() {
                   {label}
                 </NavLink>
               ))}
-            </nav>
+        </nav>
+
+        <div className="p-3">
+          <div className="my-2 border-t border-white/8" />
+          {role === "admin" ? (
+            <>
+              <NavLink
+                to="/admin/residents"
+                className={({ isActive }) =>
+                  `flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors ${
+                    isActive ? "bg-brand/10 text-brand" : "text-slate-400 hover:bg-white/5 hover:text-white"
+                  }`
+                }
+              >
+                <UsersRound size={20} />
+                {!collapsed && <span>Moradores</span>}
+              </NavLink>
+              <NavLink
+                to="/admin/settings"
+                className={({ isActive }) =>
+                  `flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors ${
+                    isActive ? "bg-brand/10 text-brand" : "text-slate-400 hover:bg-white/5 hover:text-white"
+                  }`
+                }
+              >
+                <Settings size={20} />
+                {!collapsed && <span>Configurações</span>}
+              </NavLink>
+            </>
+          ) : (
+            <NavLink
+              to="/resident/profile"
+              className={({ isActive }) =>
+                `flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors ${
+                  isActive ? "bg-brand/10 text-brand" : "text-slate-400 hover:bg-white/5 hover:text-white"
+                }`
+              }
+            >
+              <UserRound size={20} />
+              {!collapsed && <span>Meu Perfil</span>}
+            </NavLink>
+          )}
+        </div>
             <Button
               className="mt-8 w-full"
-              onClick={switchRole}
+              onClick={() => {
+                dispatch({ type: "logout" })
+                navigate("/login")
+              }}
               variant="secondary"
             >
-              <UserRound size={18} />
-              Ver como {role === "admin" ? "morador" : "admin"}
+              <LogOut size={18} />
+              Sair da conta
             </Button>
           </aside>
         </div>
@@ -230,7 +291,9 @@ export default function AppShell() {
                 Residencial Aurora · São Paulo
               </p>
               <Heading className="truncate" level={2}>
-                {titles[location.pathname] ?? "EV ChargeOps"}
+                {location.pathname === "/resident/overview"
+                  ? `Olá, ${(userName || username || "Morador").split(" ")[0]}`
+                  : (titles[location.pathname] ?? "EV ChargeOps")}
               </Heading>
             </div>
           </div>
@@ -249,13 +312,31 @@ export default function AppShell() {
               <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-brand ring-2 ring-app" />
             </Button>
             <div className="flex size-10 items-center justify-center rounded-full bg-navy text-sm font-bold text-white">
-              AM
+              {(userName || username || "EV")
+                .split(" ")
+                .filter(Boolean)
+                .map((n) => n[0])
+                .slice(0, 2)
+                .join("")
+                .toUpperCase()}
             </div>
           </div>
         </header>
 
         <main className="mx-auto max-w-screen-2xl px-4 pb-28 pt-5 sm:px-6 sm:pt-7 lg:px-8 lg:pb-10">
-          <Outlet />
+          {isLoading ? (
+            <div className="flex h-64 items-center justify-center">
+              <div className="size-10 animate-spin rounded-full border-4 border-brand border-t-transparent" />
+            </div>
+          ) : error ? (
+            <div className="flex h-64 flex-col items-center justify-center text-center">
+              <p className="text-lg font-semibold text-danger">Erro ao carregar os dados</p>
+              <p className="mt-2 text-sm text-ink-subtle">{error}</p>
+              <Button onClick={() => window.location.reload()} variant="secondary" className="mt-4">Tentar novamente</Button>
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
 
