@@ -1,4 +1,4 @@
-﻿import { useState } from "react"
+import { useState } from "react"
 
 import { useAppState } from "@/state/AppState"
 
@@ -69,17 +69,12 @@ export function Login() {
 
 
       dispatch({
-
         type: "set-auth",
-
         role: data.role === "ADMIN" ? "admin" : "resident",
-
         authToken: data.access_token,
-
         username: data.username,
-
+        userName: data.nome || data.username,
         unidadeId: null
-
       })
 
 

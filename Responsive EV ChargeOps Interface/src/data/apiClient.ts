@@ -48,7 +48,17 @@ export async function fetchAdminDashboard(token: string, periodo = "2026-06"): P
 export async function fetchResidentDashboard(token: string, periodo = "2026-06"): Promise<{
   sessions: ChargingSession[],
   charge: Charge | null,
-  chargers: Charger[]
+  chargers: Charger[],
+  metrics?: {
+    totalEnergy: number
+    totalCost: number
+    avgDurationMinutes: number
+  },
+  usuario?: {
+    id_usuario: number
+    nome: string
+    username: string
+  }
 }> {
   const res = await fetch(`${API_URL}/resident/dashboard?periodo=${periodo}`, { headers: getHeaders(token) });
   
@@ -66,7 +76,7 @@ export async function fetchResidentDashboard(token: string, periodo = "2026-06")
     date: s.dt_inicio,
     duration: s.dt_fim ? Math.round((new Date(s.dt_fim).getTime() - new Date(s.dt_inicio).getTime()) / 60000) : 0,
     energy: s.energia_kwh,
-    cost: 0, 
+    cost: (s.energia_kwh || 0) * 0.92, 
     status: s.status_final === "concluida" ? "completed" : "active"
   }));
 
@@ -82,7 +92,7 @@ export async function fetchResidentDashboard(token: string, periodo = "2026-06")
     };
   }
 
-    const chargers: Charger[] = (data.carregadores || []).map((c: any) => ({
+  const chargers: Charger[] = (data.carregadores || []).map((c: any) => ({
     id: `ch-${c.id_carregador}`,
     name: c.fabricante_modelo || c.nome_carregador || `Carregador ${c.id_carregador}`,
     location: c.localizacao || "Indisponível",
@@ -90,5 +100,34 @@ export async function fetchResidentDashboard(token: string, periodo = "2026-06")
     power: c.potencia_nominal_kw || c.potencia_kw || 0
   }));
 
-  return { sessions, charge, chargers };
+  return { sessions, charge, chargers, metrics: data.metrics, usuario: data.usuario };
 }
+
+export async function fetchReservations(token: string, idCarregador?: number | string): Promise<any[]> {
+  const query = idCarregador !== undefined && idCarregador !== null
+    ? `?id_carregador=${encodeURIComponent(String(idCarregador).replace("ch-", ""))}`
+    : "";
+  const res = await fetch(`${API_URL}/reservations${query}`, { headers: getHeaders(token) });
+  if (!res.ok) throw new Error(`Erro ao buscar reservas: ${res.status}`);
+  return res.json();
+}
+
+export async function cancelReservationApi(token: string, idReserva: number | string): Promise<any> {
+  const res = await fetch(`${API_URL}/reservations/${idReserva}/cancel`, {
+    method: "PATCH",
+    headers: getHeaders(token)
+  });
+  if (!res.ok) throw new Error(`Erro ao cancelar reserva: ${res.status}`);
+  return res.json();
+}
+
+export async function markInvoicePaid(token: string, idFatura: number | string): Promise<any> {
+  const numId = String(idFatura).replace("fat-", "");
+  const res = await fetch(`${API_URL}/admin/faturas/${numId}/pago`, {
+    method: "PUT",
+    headers: getHeaders(token)
+  });
+  if (!res.ok) throw new Error(`Erro ao marcar fatura como paga: ${res.status}`);
+  return res.json();
+}
+

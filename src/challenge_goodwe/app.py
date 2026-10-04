@@ -89,8 +89,33 @@ def resident_dashboard(
         
         carregadores_df = consultas.carregadores()
         carregadores = carregadores_df.to_dict(orient="records") if not carregadores_df.empty else []
+
+        # Calcular métricas dinâmicas do residente
+        total_kwh = float(fatura["energia_total_kwh"]) if fatura else sum(float(s.get("energia_kwh", 0)) for s in sessoes)
+        total_cost = float(fatura["valor_total_brl"]) if fatura else round(total_kwh * 0.92, 2)
+
+        durations = []
+        for s in sessoes:
+            if s.get("dt_inicio") and s.get("dt_fim"):
+                try:
+                    t_ini = pd.to_datetime(s["dt_inicio"])
+                    t_fim = pd.to_datetime(s["dt_fim"])
+                    durations.append((t_fim - t_ini).total_seconds() / 60.0)
+                except Exception:
+                    pass
+        avg_duration_min = round(sum(durations) / len(durations)) if durations else 0
         
         return {
+            "usuario": {
+                "id_usuario": current_user.id_usuario,
+                "nome": current_user.nome,
+                "username": current_user.username
+            },
+            "metrics": {
+                "totalEnergy": round(total_kwh, 2),
+                "totalCost": round(total_cost, 2),
+                "avgDurationMinutes": avg_duration_min
+            },
             "fatura": fatura,
             "sessoes": sessoes,
             "carregadores": carregadores
@@ -103,8 +128,10 @@ class UpdateProfileRequest(BaseModel):
     nome: str
     email: str
     telefone: str
-    veiculo_modelo: str = ""
-    veiculo_bateria_kwh: float = 0.0
+    veiculo_modelo: Optional[str] = None
+    veículo_modelo: Optional[str] = None
+    veiculo_bateria_kwh: Optional[float] = None
+    veículo_bateria_kwh: Optional[float] = None
 
 @app.get("/api/me")
 def get_me(current_user: Usuario = Depends(get_current_user)):
@@ -113,8 +140,10 @@ def get_me(current_user: Usuario = Depends(get_current_user)):
         "nome": current_user.nome,
         "email": current_user.email,
         "telefone": current_user.telefone,
-        "veiculo_modelo": current_user.veiculo_modelo,
-        "veiculo_bateria_kwh": current_user.veiculo_bateria_kwh,
+        "veiculo_modelo": current_user.veiculo_modelo or "",
+        "veículo_modelo": current_user.veiculo_modelo or "",
+        "veiculo_bateria_kwh": current_user.veiculo_bateria_kwh or 0.0,
+        "veículo_bateria_kwh": current_user.veiculo_bateria_kwh or 0.0,
         "id_rfid": current_user.id_rfid,
     }
 
@@ -123,10 +152,22 @@ def update_me(req: UpdateProfileRequest, current_user: Usuario = Depends(get_cur
     current_user.nome = req.nome
     current_user.email = req.email
     current_user.telefone = req.telefone
-    current_user.veiculo_modelo = req.veiculo_modelo
-    current_user.veiculo_bateria_kwh = req.veiculo_bateria_kwh
+    
+    modelo = req.veiculo_modelo if req.veiculo_modelo is not None else req.veículo_modelo
+    if modelo is not None:
+        current_user.veiculo_modelo = modelo
+        
+    bateria = req.veiculo_bateria_kwh if req.veiculo_bateria_kwh is not None else req.veículo_bateria_kwh
+    if bateria is not None:
+        current_user.veiculo_bateria_kwh = bateria
+
     db.commit()
-    return {"message": "Profile updated"}
+    return {
+        "message": "Profile updated",
+        "nome": current_user.nome,
+        "veiculo_modelo": current_user.veiculo_modelo,
+        "veiculo_bateria_kwh": current_user.veiculo_bateria_kwh
+    }
 
 from datetime import datetime
 
@@ -136,17 +177,44 @@ class CriarReservaRequest(BaseModel):
     dt_fim_agendado: datetime
 
 @app.get("/api/reservations")
-def get_reservations(db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
-    from challenge_goodwe.infrastructure.orm import ReservaCarregador
+def get_reservations(
+    id_carregador: Optional[int] = None,
+    db: Session = Depends(get_db), 
+    current_user: Usuario = Depends(get_current_user)
+):
+    from challenge_goodwe.infrastructure.orm import ReservaCarregador, Usuario, Unidade
     
-    # Se for admin, pode ver todas. Se for morador, apenas as dele ou apenas os slots ocupados
-    if current_user.role == "ADMIN":
-        reservas = db.query(ReservaCarregador).all()
-    else:
-        # Retorna apenas as reservas do morador
-        reservas = db.query(ReservaCarregador).filter(ReservaCarregador.id_usuario == current_user.id_usuario).all()
+    query = db.query(
+        ReservaCarregador,
+        Usuario.nome.label("usuario_nome"),
+        Usuario.telefone.label("usuario_telefone"),
+        Unidade.cd_unidade.label("unidade_cd")
+    ).outerjoin(Usuario, Usuario.id_usuario == ReservaCarregador.id_usuario)\
+     .outerjoin(Unidade, Unidade.id_unidade == ReservaCarregador.id_unidade)
+    
+    if current_user.role != "ADMIN":
+        query = query.filter(ReservaCarregador.id_usuario == current_user.id_usuario)
+    elif id_carregador is not None:
+        query = query.filter(ReservaCarregador.id_carregador == id_carregador)
         
-    return reservas
+    results = query.order_by(ReservaCarregador.dt_inicio_agendado.asc()).all()
+    
+    lista = []
+    for r, nome, tel, cd_unidade in results:
+        lista.append({
+            "id_reserva": r.id_reserva,
+            "id_carregador": r.id_carregador,
+            "id_usuario": r.id_usuario,
+            "id_unidade": r.id_unidade,
+            "usuario_nome": nome,
+            "usuario_telefone": tel,
+            "unidade_cd": cd_unidade,
+            "dt_inicio_agendado": r.dt_inicio_agendado.isoformat() if r.dt_inicio_agendado else None,
+            "dt_fim_agendado": r.dt_fim_agendado.isoformat() if r.dt_fim_agendado else None,
+            "status_reserva": r.status_reserva,
+            "criado_em": r.criado_em.isoformat() if r.criado_em else None,
+        })
+    return lista
 
 @app.post("/api/reservations")
 def create_reservation(req: CriarReservaRequest, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
@@ -179,3 +247,19 @@ def create_reservation(req: CriarReservaRequest, db: Session = Depends(get_db), 
     db.commit()
     db.refresh(nova_reserva)
     return nova_reserva
+
+@app.patch("/api/reservations/{id_reserva}/cancel")
+@app.delete("/api/reservations/{id_reserva}")
+def cancel_reservation(id_reserva: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
+    from challenge_goodwe.infrastructure.orm import ReservaCarregador
+    
+    reserva = db.query(ReservaCarregador).filter(ReservaCarregador.id_reserva == id_reserva).first()
+    if not reserva:
+        raise HTTPException(status_code=404, detail="Reserva não encontrada")
+        
+    if current_user.role != "ADMIN" and reserva.id_usuario != current_user.id_usuario:
+        raise HTTPException(status_code=403, detail="Você não tem permissão para cancelar esta reserva")
+        
+    reserva.status_reserva = "cancelada"
+    db.commit()
+    return {"message": "Reserva cancelada com sucesso", "id_reserva": id_reserva, "status_reserva": "cancelada"}

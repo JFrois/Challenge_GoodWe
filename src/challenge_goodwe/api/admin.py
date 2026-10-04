@@ -272,6 +272,7 @@ def update_carregador_status(id_carregador: int, req: CarregadorStatusUpdate, db
     return {"message": "Status do carregador atualizado"}
 
 @router.put("/faturas/{id_fatura}/pago")
+@router.patch("/faturas/{id_fatura}/pago")
 def update_fatura_pago(id_fatura: int, db: Session = Depends(get_db), current_user: Usuario = Depends(require_admin)):
     from challenge_goodwe.infrastructure.orm import Fatura
     fatura = db.query(Fatura).filter(Fatura.id_fatura == id_fatura).first()
@@ -280,7 +281,7 @@ def update_fatura_pago(id_fatura: int, db: Session = Depends(get_db), current_us
     
     fatura.status_pgto = "pago"
     db.commit()
-    return {"message": "Fatura marcada como paga"}
+    return {"message": "Fatura marcada como paga", "id_fatura": id_fatura, "status_pgto": "pago"}
 
 @router.post("/usuarios/{id_usuario}/reativar")
 def reativar_usuario(id_usuario: int, db: Session = Depends(get_db), current_user: Usuario = Depends(require_admin)):

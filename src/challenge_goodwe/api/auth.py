@@ -1,4 +1,5 @@
 from datetime import timedelta, datetime
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -24,6 +25,7 @@ class TokenResponse(BaseModel):
     token_type: str
     role: str
     username: str
+    nome: Optional[str] = None
 
 @router.post("/login", response_model=TokenResponse)
 def login(req: LoginRequest, db: Session = Depends(get_db)):
@@ -78,5 +80,6 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         "access_token": access_token,
         "token_type": "bearer",
         "role": user.role,
-        "username": user.username
+        "username": user.username,
+        "nome": user.nome
     }

@@ -33,7 +33,7 @@ function assistantReply(text: string, role: "admin" | "resident") {
 }
 
 export function Assistant() {
-  const { role, authToken, messages, dispatch } = useAppState()
+  const { role, authToken, username, userName, messages, dispatch } = useAppState()
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState("")
   const [typing, setTyping] = useState(false)
@@ -116,10 +116,12 @@ export function Assistant() {
     }
   }
 
+  const firstName = (userName || username || "Morador").split(" ")[0]
+
   const welcome =
     role === "admin"
       ? "Olá! Estou acompanhando a operação do Residencial Aurora. Como posso ajudar?"
-      : "Olá, Ana! Posso ajudar a encontrar um carregador ou entender seu consumo."
+      : `Olá, ${firstName}! Posso ajudar a encontrar um carregador ou entender seu consumo.`
 
   return (
     <>

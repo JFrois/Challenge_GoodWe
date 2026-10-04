@@ -42,7 +42,7 @@ const titles: Record<string, string> = {
   "/admin/billing": "Gestão financeira",
   "/admin/residents": "Gerenciar moradores",
   "/admin/settings": "Configurações do sistema",
-  "/resident/overview": "Olá, Ana",
+  "/resident/overview": "Início",
   "/resident/chargers": "Encontrar carregador",
   "/resident/bookings": "Minhas reservas",
   "/resident/usage": "Meu consumo",
@@ -50,7 +50,7 @@ const titles: Record<string, string> = {
 }
 
 export default function AppShell() {
-  const { role, dispatch, notify, isLoading, error } = useAppState()
+  const { role, username, userName, dispatch, notify, isLoading, error } = useAppState()
   const [mobileMenu, setMobileMenu] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const location = useLocation()
@@ -291,7 +291,9 @@ export default function AppShell() {
                 Residencial Aurora · São Paulo
               </p>
               <Heading className="truncate" level={2}>
-                {titles[location.pathname] ?? "EV ChargeOps"}
+                {location.pathname === "/resident/overview"
+                  ? `Olá, ${(userName || username || "Morador").split(" ")[0]}`
+                  : (titles[location.pathname] ?? "EV ChargeOps")}
               </Heading>
             </div>
           </div>
@@ -310,7 +312,13 @@ export default function AppShell() {
               <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-brand ring-2 ring-app" />
             </Button>
             <div className="flex size-10 items-center justify-center rounded-full bg-navy text-sm font-bold text-white">
-              AM
+              {(userName || username || "EV")
+                .split(" ")
+                .filter(Boolean)
+                .map((n) => n[0])
+                .slice(0, 2)
+                .join("")
+                .toUpperCase()}
             </div>
           </div>
         </header>

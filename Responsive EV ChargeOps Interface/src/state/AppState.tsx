@@ -14,7 +14,7 @@ import type {
   ChargingSession,
   Role,
 } from "@/types/domain"
-import { fetchAdminDashboard, fetchResidentDashboard } from "@/data/apiClient"
+import { fetchAdminDashboard, fetchResidentDashboard, fetchReservations } from "@/data/apiClient"
 
 type Toast = {
   id: string
@@ -26,6 +26,7 @@ type State = {
   role: Role | null
   authToken: string | null
   username: string | null
+  userName: string | null
   unidadeId: number | null
   chargers: Charger[]
   bookings: Booking[]
@@ -36,6 +37,17 @@ type State = {
   toasts: Toast[]
   isLoading: boolean
   error: string | null
+  residentMetrics?: {
+    totalEnergy: number
+    totalCost: number
+    avgDurationMinutes: number
+  } | null
+  adminMetrics?: {
+    totalEnergy: number
+    totalRevenue: number
+    activeSessions: number
+    activeAlerts: number
+  } | null
 }
 
 type SetAuthAction = {
@@ -43,6 +55,7 @@ type SetAuthAction = {
   role: Role | null
   authToken: string | null
   username: string | null
+  userName?: string | null
   unidadeId: number | null
 }
 
@@ -99,6 +112,7 @@ const baseState: State = {
   role: null,
   authToken: null,
   username: null,
+  userName: null,
   unidadeId: null,
   chargers: [],
   bookings: [],
@@ -109,6 +123,7 @@ const baseState: State = {
   toasts: [],
   isLoading: true,
   error: null,
+  residentMetrics: null,
 }
 
 function restoreState(): State {
@@ -121,6 +136,7 @@ function restoreState(): State {
       role: parsed.role || null,
       authToken: parsed.authToken || null,
       username: parsed.username || null,
+      userName: parsed.userName || null,
       unidadeId: parsed.unidadeId || null,
       isLoading: false, // loaded from cache
       messages: Array.isArray(parsed.messages)
@@ -141,6 +157,7 @@ function reducer(state: State, action: Action): State {
         role: action.role, 
         authToken: action.authToken, 
         username: action.username, 
+        userName: action.userName || state.userName || action.username,
         unidadeId: action.unidadeId 
       }
     case "set-role":
@@ -249,18 +266,88 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "set-fetch-state", isLoading: true, error: null })
     try {
       if (state.role === "admin") {
-        const { charges, chargers, chartData } = await fetchAdminDashboard(state.authToken)
-        dispatch({ type: "hydrate", payload: { charges, chargers, chartData } })
+        const [dashRes, resvRes] = await Promise.allSettled([
+          fetchAdminDashboard(state.authToken),
+          fetchReservations(state.authToken),
+        ])
+
+        const dashData = dashRes.status === "fulfilled" ? dashRes.value : null
+        const resvData = resvRes.status === "fulfilled" ? resvRes.value : []
+
+        const formattedBookings: Booking[] = (resvData || []).map((b: any) => ({
+          id: String(b.id_reserva),
+          resident: b.usuario_nome || `Unidade ${b.unidade_cd || b.id_unidade}`,
+          chargerId: `ch-${b.id_carregador}`,
+          date: b.dt_inicio_agendado ? b.dt_inicio_agendado.split("T")[0] : "",
+          time: b.dt_inicio_agendado
+            ? b.dt_inicio_agendado.split("T")[1]?.substring(0, 5)
+            : "",
+          duration: 90,
+          status:
+            b.status_reserva === "cancelada"
+              ? "cancelled"
+              : b.status_reserva === "concluida"
+                ? "completed"
+                : "upcoming",
+        }))
+
+        dispatch({
+          type: "hydrate",
+          payload: {
+            charges: dashData?.charges || state.charges,
+            chargers: dashData?.chargers?.length ? dashData.chargers : state.chargers,
+            chartData: dashData?.chartData || state.chartData,
+            bookings: formattedBookings,
+            adminMetrics: dashData?.metrics || null,
+          },
+        })
       } else {
-        const { sessions, charge, chargers } = await fetchResidentDashboard(state.authToken)
-          dispatch({
-            type: "hydrate",
-            payload: {
-              sessions,
-              charges: charge ? [charge] : [],
-              chargers
-            }
-          })
+        const [dashRes, resvRes, meRes] = await Promise.allSettled([
+          fetchResidentDashboard(state.authToken),
+          fetchReservations(state.authToken),
+          fetch((import.meta.env.VITE_API_URL || "http://localhost:8000") + "/api/me", {
+            headers: { Authorization: `Bearer ${state.authToken}` },
+          }).then((r) => (r.ok ? r.json() : null)),
+        ])
+
+        const dashData = dashRes.status === "fulfilled" ? dashRes.value : null
+        const resvData = resvRes.status === "fulfilled" ? resvRes.value : []
+        const meData = meRes.status === "fulfilled" ? meRes.value : null
+
+        const currentUserName =
+          meData?.nome ||
+          dashData?.usuario?.nome ||
+          state.userName ||
+          state.username
+
+        const formattedBookings: Booking[] = (resvData || []).map((b: any) => ({
+          id: String(b.id_reserva),
+          resident: currentUserName || "Morador",
+          chargerId: `ch-${b.id_carregador}`,
+          date: b.dt_inicio_agendado ? b.dt_inicio_agendado.split("T")[0] : "",
+          time: b.dt_inicio_agendado
+            ? b.dt_inicio_agendado.split("T")[1]?.substring(0, 5)
+            : "",
+          duration: 90,
+          status:
+            b.status_reserva === "cancelada"
+              ? "cancelled"
+              : b.status_reserva === "concluida"
+                ? "completed"
+                : "upcoming",
+        }))
+
+        dispatch({
+          type: "hydrate",
+          payload: {
+            sessions: dashData?.sessions || state.sessions,
+            charges: dashData?.charge ? [dashData.charge] : state.charges,
+            chargers: dashData?.chargers?.length ? dashData.chargers : state.chargers,
+            bookings: formattedBookings,
+            userName: currentUserName,
+            residentMetrics: dashData?.metrics || null,
+          },
+        })
       }
       dispatch({ type: "set-fetch-state", isLoading: false, error: null })
     } catch (err: any) {
@@ -285,11 +372,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         role: state.role,
         authToken: state.authToken,
         username: state.username,
+        userName: state.userName,
         unidadeId: state.unidadeId,
         messages: state.messages,
       }),
     )
-  }, [state.role, state.authToken, state.username, state.unidadeId, state.messages])
+  }, [state.role, state.authToken, state.username, state.userName, state.unidadeId, state.messages])
 
   const value = useMemo<AppStateValue>(
     () => ({
