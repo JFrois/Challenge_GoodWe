@@ -247,3 +247,37 @@ def test_chat_admin_sucesso(client, resident_db):
         assert len(data["reply"]) > 0
     else:
         assert res.status_code in [200, 500, 503]
+
+def test_login_morador_e_admin(client, resident_db):
+    # Teste de login de morador (42B)
+    res_morador = client.post(
+        "/api/auth/login", json={"username": "42B", "pin": "123456"}
+    )
+    assert res_morador.status_code == 200
+    morador_data = res_morador.json()
+    assert morador_data["role"] == "MORADOR"
+    assert "access_token" in morador_data
+    assert morador_data["username"] == "42B"
+
+    # Teste de login case-insensitive (42b)
+    res_lower = client.post(
+        "/api/auth/login", json={"username": "42b", "pin": "123456"}
+    )
+    assert res_lower.status_code == 200
+
+    # Teste de login de administrador (admin)
+    res_admin = client.post(
+        "/api/auth/login", json={"username": "admin", "pin": "123456"}
+    )
+    assert res_admin.status_code == 200
+    admin_data = res_admin.json()
+    assert admin_data["role"] == "ADMIN"
+    assert admin_data["username"] == "admin"
+    assert "access_token" in admin_data
+
+    # Teste de PIN incorreto
+    res_err = client.post(
+        "/api/auth/login", json={"username": "admin", "pin": "000000"}
+    )
+    assert res_err.status_code == 401
+
