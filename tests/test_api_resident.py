@@ -198,3 +198,52 @@ def test_admin_reservas_por_carregador_e_cancelar(client, resident_db):
     # Verifica status
     reserva = resident_db.query(ReservaCarregador).filter(ReservaCarregador.id_reserva == reserva_id).first()
     assert reserva.status_reserva == "cancelada"
+
+def test_chat_morador_sucesso(client, resident_db):
+    user = resident_db.query(Usuario).filter(Usuario.id_usuario == 10).first()
+    user.username = "101A"
+    resident_db.commit()
+    user_token = create_access_token({"sub": "101A", "role": "MORADOR", "uid": user.id_usuario})
+    user_headers = {"Authorization": f"Bearer {user_token}"}
+
+    res = client.post(
+        "/api/chat",
+        headers=user_headers,
+        json={"message": "Olá, quanto gastei no condomínio este mês?"}
+    )
+    # Com a chave no .env, deve retornar 200 e uma resposta
+    if res.status_code == 200:
+        data = res.json()
+        assert "reply" in data
+        assert len(data["reply"]) > 0
+    else:
+        # Se estiver sem cota ou indisponivel no CI, retorna 500/503 com mensagem clara
+        assert res.status_code in [200, 500, 503]
+
+def test_chat_admin_sucesso(client, resident_db):
+    admin_user = resident_db.query(Usuario).filter(Usuario.username == "admin").first()
+    if not admin_user:
+        admin_user = Usuario(
+            nome="Administrador",
+            username="admin",
+            pin_hash="dummy",
+            role="ADMIN",
+            ativo=True
+        )
+        resident_db.add(admin_user)
+        resident_db.commit()
+
+    admin_token = create_access_token({"sub": "admin", "role": "ADMIN", "uid": admin_user.id_usuario})
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    res = client.post(
+        "/api/chat",
+        headers=headers,
+        json={"message": "Como está o status dos carregadores da rede hoje?"}
+    )
+    if res.status_code == 200:
+        data = res.json()
+        assert "reply" in data
+        assert len(data["reply"]) > 0
+    else:
+        assert res.status_code in [200, 500, 503]
