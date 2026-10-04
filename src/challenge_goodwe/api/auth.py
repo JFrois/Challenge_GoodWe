@@ -17,7 +17,7 @@ MAX_ATTEMPTS = 5
 LOCKOUT_MINUTES = 5
 
 class LoginRequest(BaseModel):
-    username: str = Field(..., pattern=r"^\d{1,4}[A-Z]$")
+    username: str = Field(..., pattern=r"^[A-Za-z0-9_]{2,20}$", description="Identificador do usuário/unidade (ex: 42B ou admin)")
     pin: str = Field(..., pattern=r"^\d{6}$")
 
 class TokenResponse(BaseModel):
@@ -41,7 +41,15 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
                 # Reset after lockout
                 failed_attempts.pop(req.username, None)
                 
-    user = db.query(Usuario).filter(Usuario.username == req.username).first()
+    user = (
+        db.query(Usuario)
+        .filter(
+            (Usuario.username == req.username)
+            | (Usuario.username == req.username.upper())
+            | (Usuario.username == req.username.lower())
+        )
+        .first()
+    )
     
     if not user or not user.pin_hash or not verify_pin(req.pin, user.pin_hash):
         # Register fail

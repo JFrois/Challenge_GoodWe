@@ -140,16 +140,24 @@ class SessaoRepository:
     def inserir_leituras(self, id_sessao: int, leituras: Iterable[dict]) -> int:
         if not leituras:
             return 0
-        objetos = [
-            OrmLeituraMedicao(
-                id_sessao=id_sessao,
-                timestamp=l["timestamp"],
-                energia_acumulada_kwh=l["energia_acumulada_kwh"],
-                potencia_instantanea_kw=l["potencia_instantanea_kw"],
-                tensao_v=l["tensao_v"],
-                corrente_a=l["corrente_a"],
-            ) for l in leituras
-        ]
+        objetos = []
+        for l in leituras:
+            ts = l["timestamp"]
+            if isinstance(ts, str):
+                try:
+                    ts = datetime.fromisoformat(ts)
+                except ValueError:
+                    ts = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+            objetos.append(
+                OrmLeituraMedicao(
+                    id_sessao=id_sessao,
+                    timestamp=ts,
+                    energia_acumulada_kwh=l["energia_acumulada_kwh"],
+                    potencia_instantanea_kw=l["potencia_instantanea_kw"],
+                    tensao_v=l["tensao_v"],
+                    corrente_a=l["corrente_a"],
+                )
+            )
         self._session.add_all(objetos)
         return len(objetos)
 
