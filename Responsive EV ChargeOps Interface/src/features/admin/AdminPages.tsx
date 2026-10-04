@@ -289,7 +289,7 @@ export function AdminOverview() {
 }
 
 export function AdminOperations() {
-  const { chargers, dispatch, notify } = useAppState()
+  const { chargers, dispatch, notify, authToken } = useAppState()
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState<ChargerStatus | "all">("all")
   const [selected, setSelected] = useState<Charger | null>(null)
@@ -474,16 +474,27 @@ export function AdminOperations() {
               )}
               <Button
                 className="flex-1"
-                onClick={() => {
-                  dispatch({ type: "toggle-maintenance", id: selected.id })
-                  notify(
-                    selected.status === "offline"
-                      ? "Ponto reativado."
-                      : "Ponto colocado em manutenção.",
-                    "info",
-                  )
-                  setSelected(null)
-                }}
+                onClick={async () => {
+                    const newStatus = selected.status === "offline" ? "online" : "offline"
+                    try {
+                      await fetch(`${(import.meta.env.VITE_API_URL || 'http://localhost:8000')}/api/admin/carregadores/${selected.id.replace('ch-', '')}/status`, {
+                        method: "PUT",
+                        headers: { 
+                          "Authorization": `Bearer ${authToken}`,
+                          "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({ status: newStatus })
+                      })
+                      dispatch({ type: "toggle-maintenance", id: selected.id })
+                      notify(
+                        newStatus === "online" ? "Ponto reativado." : "Ponto colocado em manutenção.",
+                        "info"
+                      )
+                    } catch (e) {
+                      console.error(e)
+                    }
+                    setSelected(null)
+                  }}
                 variant="secondary"
               >
                 <Wrench size={18} />{" "}
@@ -500,7 +511,7 @@ export function AdminOperations() {
 }
 
 export function AdminBilling() {
-  const { charges, dispatch, notify } = useAppState()
+  const { charges, dispatch, notify, authToken } = useAppState()
   const total = charges.reduce((sum, item) => sum + item.amount, 0)
   const paid = charges
     .filter((item) => item.status === "paid")
@@ -667,3 +678,6 @@ export function AdminBilling() {
     </div>
   )
 }
+
+export * from './AdminResidents';
+export * from './AdminSettings';

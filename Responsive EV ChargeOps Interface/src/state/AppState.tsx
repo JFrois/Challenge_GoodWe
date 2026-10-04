@@ -6,12 +6,6 @@ import {
   useReducer,
   type ReactNode,
 } from "react"
-import {
-  bookings as initialBookings,
-  charges as initialCharges,
-  chargers as initialChargers,
-  sessions as initialSessions,
-} from "@/data/mockData"
 import type {
   AssistantMessage,
   Booking,
@@ -20,6 +14,7 @@ import type {
   ChargingSession,
   Role,
 } from "@/types/domain"
+import { fetchAdminDashboard, fetchResidentDashboard } from "@/data/apiClient"
 
 type Toast = {
   id: string
@@ -28,13 +23,27 @@ type Toast = {
 }
 
 type State = {
-  role: Role
+  role: Role | null
+  authToken: string | null
+  username: string | null
+  unidadeId: number | null
   chargers: Charger[]
   bookings: Booking[]
   sessions: ChargingSession[]
   charges: Charge[]
+  chartData: any[]
   messages: AssistantMessage[]
   toasts: Toast[]
+  isLoading: boolean
+  error: string | null
+}
+
+type SetAuthAction = {
+  type: "set-auth"
+  role: Role | null
+  authToken: string | null
+  username: string | null
+  unidadeId: number | null
 }
 
 type SetRoleAction = {
@@ -68,54 +77,78 @@ type ToastAction = {
 }
 
 type SimpleAction = {
-  type: "clear-messages" | "reset"
+  type: "clear-messages" | "reset" | "logout"
 }
 
-type Action = SetRoleAction | AddBookingAction | IdAction | EndSessionAction | AddMessageAction | ToastAction | SimpleAction
+type HydrateAction = {
+  type: "hydrate"
+  payload: Partial<State>
+}
 
-const STORAGE_KEY = "chargeops-state-v1"
+type FetchStateAction = {
+  type: "set-fetch-state"
+  isLoading: boolean
+  error: string | null
+}
+
+type Action = SetAuthAction | SetRoleAction | AddBookingAction | IdAction | EndSessionAction | AddMessageAction | ToastAction | SimpleAction | HydrateAction | FetchStateAction
+
+const STORAGE_KEY = "chargeops-state-v2"
 
 const baseState: State = {
-  role: "admin",
-  chargers: initialChargers,
-  bookings: initialBookings,
-  sessions: initialSessions,
-  charges: initialCharges,
+  role: null,
+  authToken: null,
+  username: null,
+  unidadeId: null,
+  chargers: [],
+  bookings: [],
+  sessions: [],
+  charges: [],
+  chartData: [],
   messages: [],
   toasts: [],
+  isLoading: true,
+  error: null,
 }
 
 function restoreState(): State {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (!saved) return baseState
+    if (!saved) return { ...baseState, isLoading: false }
     const parsed = JSON.parse(saved) as Partial<State>
-    if (parsed.role !== "admin" && parsed.role !== "resident") return baseState
     return {
       ...baseState,
-      role: parsed.role,
-      bookings: Array.isArray(parsed.bookings)
-        ? parsed.bookings
-        : baseState.bookings,
-      chargers: Array.isArray(parsed.chargers)
-        ? parsed.chargers
-        : baseState.chargers,
-      charges: Array.isArray(parsed.charges)
-        ? parsed.charges
-        : baseState.charges,
+      role: parsed.role || null,
+      authToken: parsed.authToken || null,
+      username: parsed.username || null,
+      unidadeId: parsed.unidadeId || null,
+      isLoading: false, // loaded from cache
       messages: Array.isArray(parsed.messages)
         ? parsed.messages.slice(-20)
         : [],
     }
   } catch {
-    return baseState
+    return { ...baseState, isLoading: false }
   }
 }
 
+
 function reducer(state: State, action: Action): State {
   switch (action.type) {
+    case "set-auth":
+      return { 
+        ...state, 
+        role: action.role, 
+        authToken: action.authToken, 
+        username: action.username, 
+        unidadeId: action.unidadeId 
+      }
     case "set-role":
       return { ...state, role: action.role }
+    case "hydrate":
+      return { ...state, ...action.payload }
+    case "set-fetch-state":
+      return { ...state, isLoading: action.isLoading, error: action.error }
     case "add-booking":
       return {
         ...state,
@@ -192,14 +225,17 @@ function reducer(state: State, action: Action): State {
         ...state,
         toasts: state.toasts.filter((item) => item.id !== action.id),
       }
+    case "logout":
+      return { ...baseState, isLoading: false }
     case "reset":
-      return { ...baseState, role: state.role }
+      return { ...baseState, role: state.role, isLoading: false }
   }
 }
 
 type AppStateValue = State & {
   dispatch: React.Dispatch<Action>
   notify: (message: string, tone?: Toast["tone"]) => void
+  refreshData: () => Promise<void>
 }
 
 const AppStateContext = createContext<AppStateValue | null>(null)
@@ -207,29 +243,59 @@ const AppStateContext = createContext<AppStateValue | null>(null)
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, restoreState)
 
+  const refreshData = async () => {
+    if (!state.authToken) return;
+    
+    dispatch({ type: "set-fetch-state", isLoading: true, error: null })
+    try {
+      if (state.role === "admin") {
+        const { charges, chargers, chartData } = await fetchAdminDashboard(state.authToken)
+        dispatch({ type: "hydrate", payload: { charges, chargers, chartData } })
+      } else {
+        const { sessions, charge, chargers } = await fetchResidentDashboard(state.authToken)
+          dispatch({
+            type: "hydrate",
+            payload: {
+              sessions,
+              charges: charge ? [charge] : [],
+              chargers
+            }
+          })
+      }
+      dispatch({ type: "set-fetch-state", isLoading: false, error: null })
+    } catch (err: any) {
+      if (err.message.includes("401") || err.message.includes("403")) {
+        dispatch({ type: "logout" })
+      } else {
+        dispatch({ type: "set-fetch-state", isLoading: false, error: err.message })
+      }
+    }
+  }
+
+  // Fetch real data on role change or mount
+  useEffect(() => {
+    refreshData()
+  }, [state.role])
+
+  // Sync basic state to localStorage
   useEffect(() => {
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
         role: state.role,
-        chargers: state.chargers,
-        bookings: state.bookings,
-        charges: state.charges,
+        authToken: state.authToken,
+        username: state.username,
+        unidadeId: state.unidadeId,
         messages: state.messages,
       }),
     )
-  }, [
-    state.role,
-    state.chargers,
-    state.bookings,
-    state.charges,
-    state.messages,
-  ])
+  }, [state.role, state.authToken, state.username, state.unidadeId, state.messages])
 
   const value = useMemo<AppStateValue>(
     () => ({
       ...state,
       dispatch,
+      refreshData,
       notify: (message, tone = "success") => {
         const id = crypto.randomUUID()
         dispatch({ type: "toast", toast: { id, message, tone } })

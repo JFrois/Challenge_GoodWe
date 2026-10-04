@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { energyData, residentEnergyData } from "@/data/mockData"
+import { useAppState } from "@/state/AppState"
 
 const tooltipStyle = {
   borderRadius: 12,
@@ -20,9 +20,11 @@ const tooltipStyle = {
 }
 
 export function EnergyAreaChart() {
+  const { chartData } = useAppState()
+  
   return (
     <ResponsiveContainer height={260} width="100%">
-      <AreaChart data={energyData} margin={{ left: -24, right: 8, top: 16 }}>
+      <AreaChart data={chartData} margin={{ left: -24, right: 8, top: 16 }}>
         <defs>
           <linearGradient id="energy-fill" x1="0" x2="0" y1="0" y2="1">
             <stop
@@ -74,10 +76,12 @@ export function EnergyAreaChart() {
 }
 
 export function ResidentBarChart() {
+  const { chartData } = useAppState()
+  
   return (
     <ResponsiveContainer height={220} width="100%">
       <BarChart
-        data={residentEnergyData}
+        data={chartData}
         margin={{ left: -28, right: 4, top: 12 }}
       >
         <CartesianGrid

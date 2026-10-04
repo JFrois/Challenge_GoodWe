@@ -56,7 +56,11 @@ CREATE TABLE Usuario (
     telefone     TEXT,
     tipo_vinculo TEXT NOT NULL,
     id_rfid      TEXT NOT NULL UNIQUE,
-    id_app       TEXT UNIQUE
+    id_app       TEXT UNIQUE,
+    username     TEXT UNIQUE,
+    pin_hash     TEXT,
+    role         TEXT NOT NULL DEFAULT 'MORADOR',
+    ativo        INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE Unidade_Usuario (

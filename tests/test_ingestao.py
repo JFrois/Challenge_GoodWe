@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from sqlalchemy import text
 from datetime import datetime
 from decimal import Decimal
 
@@ -38,12 +39,12 @@ def test_ingestao_atribui_usuario_e_unidade_pelo_rfid(conexao):
     assert resultado.inseridas == 1
 
     linha = conexao.execute(
-        "SELECT id_usuario, id_unidade, id_fatura FROM Sessao_Recarga "
-        "WHERE id_sessao_sems = 'S1'"
+        text("SELECT id_usuario, id_unidade, id_fatura FROM Sessao_Recarga "
+        "WHERE id_sessao_sems = 'S1'")
     ).fetchone()
-    assert linha["id_usuario"] == 10
-    assert linha["id_unidade"] == 1
-    assert linha["id_fatura"] is None, "a sessao nasce sem fatura"
+    assert linha[0] == 10
+    assert linha[1] == 1
+    assert linha[2] is None, "a sessao nasce sem fatura"
 
 
 def test_ingestao_e_idempotente(conexao):

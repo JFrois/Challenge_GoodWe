@@ -22,18 +22,18 @@ function assistantReply(text: string, role: "admin" | "resident") {
     normalized.includes("disponível") ||
     normalized.includes("horário")
   )
-    return "Há dois pontos livres agora: ChargePoint A2 e B2, ambos com 22 kW. Hoje também há horários às 16:30, 18:30 e 20:00."
+    return "Há dois pontos livres agora: ChargePoint A2 e B2, ambos com 22 kW. Hoje também há horários Ãƒ s 16:30, 18:30 e 20:00."
   if (normalized.includes("cancel"))
-    return "Abra Reservas, localize o agendamento e selecione “Cancelar”. O horário é liberado imediatamente e não há custo até 30 minutos antes."
+    return "Abra Reservas, localize o agendamento e selecione ââ‚¬Å“Cancelarââ‚¬Â. O horário é liberado imediatamente e não há custo até 30 minutos antes."
   if (normalized.includes("conflito") || normalized.includes("agenda"))
-    return "Não há conflitos críticos. Existe uma reserva às 12:00 no B1 e outra às 18:30 no A2; os demais slots seguem disponíveis."
+    return "Não há conflitos críticos. Existe uma reserva Ãƒ s 12:00 no B1 e outra Ãƒ s 18:30 no A2; os demais slots seguem disponíveis."
   return role === "admin"
     ? "Posso resumir o consumo, verificar alertas da rede, analisar reservas ou ajudar com as cobranças do condomínio."
     : "Posso encontrar um horário livre, explicar seu consumo, orientar uma reserva ou ajudar a cancelar um agendamento."
 }
 
 export function Assistant() {
-  const { role, messages, dispatch } = useAppState()
+  const { role, authToken, messages, dispatch } = useAppState()
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState("")
   const [typing, setTyping] = useState(false)
@@ -65,7 +65,7 @@ export function Assistant() {
     })
   }, [messages, typing])
 
-  const send = (text = input) => {
+  const send = async (text = input) => {
     const clean = text.trim()
     if (!clean || typing) return
     const userMessage: AssistantMessage = {
@@ -77,18 +77,43 @@ export function Assistant() {
     dispatch({ type: "add-message", message: userMessage })
     setInput("")
     setTyping(true)
-    window.setTimeout(() => {
+
+    try {
+      const res = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000') + "/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
+        },
+        body: JSON.stringify({ message: clean })
+      })
+
+      if (!res.ok) throw new Error("Erro na IA")
+      
+      const data = await res.json()
+      
       dispatch({
         type: "add-message",
         message: {
           id: crypto.randomUUID(),
           sender: "assistant",
-          text: assistantReply(clean, role),
+          text: data.reply,
           timestamp: new Date().toISOString(),
         },
       })
+    } catch (err) {
+      dispatch({
+        type: "add-message",
+        message: {
+          id: crypto.randomUUID(),
+          sender: "assistant",
+          text: "Ocorreu um erro ao conectar com o serviço de Inteligência Artificial.",
+          timestamp: new Date().toISOString(),
+        },
+      })
+    } finally {
       setTyping(false)
-    }, 650)
+    }
   }
 
   const welcome =
@@ -127,7 +152,7 @@ export function Assistant() {
                 </Heading>
                 <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-400">
                   <span className="size-1.5 rounded-full bg-success" /> powered
-                  by Gemini · demo local
+                  by Gemini Ã‚Â· demo local
                 </p>
               </div>
               <Button

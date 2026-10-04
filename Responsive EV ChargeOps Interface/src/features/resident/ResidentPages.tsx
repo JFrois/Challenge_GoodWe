@@ -20,7 +20,7 @@ import {
   XCircle,
   Zap,
 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { ResidentBarChart } from "@/components/Charts"
 import MetricCard from "@/components/MetricCard"
@@ -187,7 +187,7 @@ export function ResidentOverview() {
                 }
               </p>
               <p className="mt-1 text-sm text-ink-subtle">
-                {nextBooking.duration} min · até 33 kWh estimados
+                {nextBooking.duration} min Â· até 33 kWh estimados
               </p>
               <Link
                 className="mt-5 flex min-h-11 items-center justify-between rounded-xl bg-surface-muted px-4 text-sm font-bold text-ink transition hover:bg-line"
@@ -225,7 +225,7 @@ export function ResidentOverview() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold">{session.date}</p>
                   <p className="text-xs text-ink-subtle">
-                    {session.energy} kWh · R${" "}
+                    {session.energy} kWh Â· R${" "}
                     {session.cost.toFixed(2).replace(".", ",")}
                   </p>
                 </div>
@@ -356,7 +356,18 @@ const days = [
 ]
 
 export function ResidentBookings() {
-  const { chargers, bookings, dispatch, notify } = useAppState()
+  const [myBookings, setMyBookings] = useState<any[]>([]);
+  const fetchBookings = async () => {
+    try {
+      const res = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/api/reservations', {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      if(res.ok) setMyBookings(await res.json());
+    } catch (e) {}
+  };
+  useEffect(() => { fetchBookings(); }, []);
+
+  const { chargers, bookings, dispatch, notify, authToken } = useAppState()
   const location = useLocation()
   const initialCharger = (location.state as { chargerId?: string } | null)
     ?.chargerId
@@ -369,9 +380,14 @@ export function ResidentBookings() {
   const [time, setTime] = useState("")
   const [success, setSuccess] = useState(false)
   const [cancelId, setCancelId] = useState<string | null>(null)
-  const residentBookings = bookings.filter(
-    (item) => item.resident === "Ana Martins",
-  )
+  const residentBookings = myBookings.map(b => ({
+      id: b.id_reserva,
+      chargerId: `ch-${b.id_carregador}`,
+      date: b.dt_inicio_agendado.split('T')[0],
+      time: b.dt_inicio_agendado.split('T')[1].substring(0,5),
+      duration: 90,
+      status: b.status_reserva
+    }))
   const selectedCharger = chargers.find((item) => item.id === chargerId)
   const conflictingSlots = bookings
     .filter(
@@ -400,9 +416,26 @@ export function ResidentBookings() {
       duration: 90,
       status: "upcoming",
     }
-    dispatch({ type: "add-booking", booking })
-    setSuccess(true)
-    notify("Reserva confirmada com sucesso.")
+    fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000') + '/api/reservations', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          id_carregador: parseInt(chargerId.replace('ch-', '') || '1'),
+          dt_inicio_agendado: `${date}T${time}:00`,
+          dt_fim_agendado: `${date}T${time.split(':')[0]}:59:59`
+        })
+      }).then(res => {
+        if(res.ok) {
+          fetchBookings();
+          setSuccess(true);
+          notify("Reserva confirmada com sucesso.");
+        } else {
+          notify("Erro ao reservar ou horário indisponível", "danger");
+        }
+      })
   }
 
   const resetFlow = () => {
@@ -462,7 +495,7 @@ export function ResidentBookings() {
                       <div className="flex-1">
                         <p className="font-bold text-ink">{charger.name}</p>
                         <p className="mt-1 text-xs font-medium text-ink-subtle">
-                          {charger.location} · {charger.power} kW
+                          {charger.location} Â· {charger.power} kW
                         </p>
                       </div>
                       {chargerId === charger.id && (
@@ -484,7 +517,7 @@ export function ResidentBookings() {
                   <div>
                     <Heading level={3}>2. Selecione data e horário</Heading>
                     <p className="mt-1 text-sm text-ink-subtle">
-                      {selectedCharger?.name} · sessões de 90 minutos
+                      {selectedCharger?.name} Â· sessões de 90 minutos
                     </p>
                   </div>
                   <Button onClick={() => setStep(1)} size="sm" variant="ghost">
@@ -568,7 +601,7 @@ export function ResidentBookings() {
                     <div>
                       <p className="text-xs text-ink-subtle">Horário</p>
                       <p className="mt-1 font-bold">
-                        {time} –{" "}
+                        {time} â€“{" "}
                         {time
                           ? `${String((Number(time.split(":")[0]) + 1) % 24).padStart(2, "0")}:30`
                           : ""}
@@ -643,8 +676,8 @@ export function ResidentBookings() {
                     {charger?.name ?? booking.chargerId}
                   </p>
                   <p className="mt-1 text-xs text-ink-subtle">
-                    {booking.date.split("-").reverse().join("/")} ·{" "}
-                    {booking.time} · {booking.duration} min
+                    {booking.date.split("-").reverse().join("/")} Â·{" "}
+                    {booking.time} Â· {booking.duration} min
                   </p>
                 </div>
                 <StatusBadge
@@ -731,7 +764,7 @@ export function ResidentUsage() {
           accent="teal"
           change="-7,4%"
           icon={Leaf}
-          label="CO₂ evitado"
+          label="COâ‚‚ evitado"
           trend="down"
           value="31,8 kg"
         />
@@ -758,7 +791,7 @@ export function ResidentUsage() {
           </Heading>
           <p className="mt-2 text-sm leading-6 text-ink-muted">
             Seu consumo elétrico neste ano evitou aproximadamente{" "}
-            <strong className="text-ink">124 kg de CO₂</strong> em comparação
+            <strong className="text-ink">124 kg de COâ‚‚</strong> em comparação
             com um veículo a combustão.
           </p>
           <div className="mt-5 rounded-xl bg-success/5 p-4">
@@ -786,7 +819,7 @@ export function ResidentUsage() {
               <div>
                 <p className="font-bold">{session.date}</p>
                 <p className="mt-1 text-xs text-ink-subtle">
-                  {session.id} · {session.duration} min
+                  {session.id} Â· {session.duration} min
                 </p>
               </div>
               <div>
@@ -806,3 +839,5 @@ export function ResidentUsage() {
     </div>
   )
 }
+
+export * from './ResidentProfile';
