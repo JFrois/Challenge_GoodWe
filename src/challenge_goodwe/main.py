@@ -28,7 +28,11 @@ import sys
 from . import logging_config
 from .core.faturamento import MotorDeFaturamento
 from .core.ingestao import ServicoDeIngestao
-from .domain.avaliacao import AvaliadorNulo, AvaliadorPorDesvioPadrao
+from .domain.avaliacao import (
+    AvaliadorIsolationForest,
+    AvaliadorNulo,
+    AvaliadorPorDesvioPadrao,
+)
 from .domain.exceptions import EVChargeOpsError
 from .domain.models import formatar_brl
 from .domain.rateio import POLITICAS, POLITICA_PADRAO, obter_politica
@@ -42,6 +46,7 @@ logger = logging.getLogger("challenge_goodwe")
 AVALIADORES = {
     "nulo": AvaliadorNulo,
     "baseline": AvaliadorPorDesvioPadrao,
+    "isolation_forest": AvaliadorIsolationForest,
 }
 
 _LINHA = "-" * 78
@@ -148,7 +153,7 @@ def cmd_demo(args: argparse.Namespace) -> int:
 
     _titulo("3/4 — Fechando o ciclo de faturamento")
     args.periodo = args.periodo or "2026-06"
-    args.avaliador = "baseline"
+    args.avaliador = "isolation_forest"
     args.politica = POLITICA_PADRAO
     args.refazer = True
     cmd_fechar(args)
@@ -177,7 +182,9 @@ def construir_parser() -> argparse.ArgumentParser:
     p_fechar.add_argument(
         "--politica", choices=sorted(POLITICAS), default=POLITICA_PADRAO
     )
-    p_fechar.add_argument("--avaliador", choices=sorted(AVALIADORES), default="baseline")
+    p_fechar.add_argument(
+        "--avaliador", choices=sorted(AVALIADORES), default="isolation_forest"
+    )
     p_fechar.add_argument(
         "--refazer", action="store_true", help="reabre um ciclo ja fechado"
     )

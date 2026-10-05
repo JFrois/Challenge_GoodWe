@@ -58,3 +58,27 @@ export type AssistantMessage = {
   timestamp: string
   actions?: AssistantAction[]
 }
+
+export type PrevisaoDemanda = {
+  kwh_total_previsto: number
+  variacao_percentual: number
+  pico_maximo_estimado_kw: number
+  capacidade_contratada_kw: number
+  taxa_ocupacao_transformador_pct: number
+  alerta_sobrecarga: boolean
+  recomendacao: string
+  serie_historica: Array<{ data: string; kwh: number; pico_kw: number }>
+  serie_prevista: Array<{ data: string; kwh: number; pico_kw: number }>
+}
+
+export type AlertaRede = {
+  id_alerta: number
+  tipo: string
+  severidade: string
+  mensagem: string
+  id_sessao?: number | null
+  id_unidade?: number | null
+  resolvido: boolean
+  criado_em?: string
+}
+

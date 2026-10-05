@@ -16,6 +16,7 @@ import {
   MoreHorizontal,
   Power,
   Search,
+  Sparkles,
   UsersRound,
   WalletCards,
   Wrench,
@@ -53,7 +54,8 @@ const statusMap: Record<ChargerStatus, {
 }
 
 export function AdminOverview() {
-  const { chargers, sessions, bookings, charges, adminMetrics } = useAppState()
+  const { chargers, sessions, bookings, charges, adminMetrics, previsao, alertas } = useAppState()
+  const [showForecast, setShowForecast] = useState(false)
   const active = chargers.filter((item) => item.status !== "offline").length
   const occupancy = chargers.length > 0
     ? Math.round(
@@ -68,6 +70,7 @@ export function AdminOverview() {
   const totalEnergy = adminMetrics?.totalEnergy ?? charges.reduce((acc, c) => acc + (c.energy || 0), 0)
   const totalRevenue = adminMetrics?.totalRevenue ?? charges.reduce((acc, c) => acc + (c.amount || 0), 0)
   const offlineChargers = chargers.filter((c) => c.status === "offline")
+  const activeAlertsCount = adminMetrics?.activeAlerts ?? alertas?.length ?? 0
 
   return (
     <div className="space-y-6">
@@ -76,14 +79,15 @@ export function AdminOverview() {
           <div>
             <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-cyan-300">
               <span className="size-2 rounded-full bg-cyan-300 shadow-[0_0_16px_var(--color-info)]" />
-              Operação em tempo real
+              Operação em tempo real · Gestão Preditiva
             </div>
             <Heading className="text-white" level={1}>
               Energia inteligente, operação tranquila.
             </Heading>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-              Todos os pontos estão sincronizados. A demanda atual está 12%
-              abaixo do pico contratado.
+              {previsao
+                ? `Modelo ML prevê ${previsao.kwh_total_previsto.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh para o próximo ciclo (${previsao.taxa_ocupacao_transformador_pct}% da capacidade do transformador).`
+                : "Todos os pontos estão sincronizados. A demanda atual está controlada dentro dos limites contratuais."}
             </p>
           </div>
           <div className="flex min-w-48 items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
@@ -92,9 +96,11 @@ export function AdminOverview() {
             </div>
             <div>
               <p className="text-xs font-medium text-slate-400">
-                Demanda agora
+                Pico Previsto (IA)
               </p>
-              <p className="text-2xl font-bold">18,4 kW</p>
+              <p className="text-2xl font-bold">
+                {previsao ? `${previsao.pico_maximo_estimado_kw.toFixed(1)} kW` : "18,4 kW"}
+              </p>
             </div>
           </div>
         </div>
@@ -116,11 +122,11 @@ export function AdminOverview() {
           value={`${totalEnergy.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh`}
         />
         <MetricCard
-          accent="orange"
-          change="Em tempo real"
-          icon={UsersRound}
-          label="Taxa de ocupação"
-          value={`${occupancy}%`}
+          accent={activeAlertsCount > 0 ? "orange" : "teal"}
+          change="Isolation Forest (IA)"
+          icon={AlertTriangle}
+          label="Alertas de Anomalia"
+          value={String(activeAlertsCount)}
         />
         <MetricCard
           accent="brand"
@@ -131,21 +137,120 @@ export function AdminOverview() {
         />
       </section>
 
+      {/* Seção de Inteligência Artificial: Previsão de Demanda & Capacidade */}
+      {previsao && (
+        <Card className="border border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 via-surface to-surface p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                <span className="flex size-2 rounded-full bg-emerald-500 animate-pulse" />
+                Inteligência Artificial · Modelo Preditivo de Demanda (Ridge)
+              </div>
+              <Heading level={2} className="text-lg">
+                Projeção do Próximo Ciclo & Capacidade do Transformador
+              </Heading>
+              <p className="text-sm text-ink-subtle max-w-3xl leading-relaxed">
+                {previsao.recomendacao}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="rounded-xl border border-line bg-surface p-3 text-center min-w-[130px]">
+                <p className="text-xs font-medium text-ink-muted">Projeção 30d</p>
+                <p className="text-lg font-bold text-ink">
+                  {previsao.kwh_total_previsto.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh
+                </p>
+                <span className={`text-[11px] font-semibold ${previsao.variacao_percentual >= 0 ? "text-emerald-600" : "text-sky-600"}`}>
+                  {previsao.variacao_percentual >= 0 ? `+${previsao.variacao_percentual}%` : `${previsao.variacao_percentual}%`} vs anterior
+                </span>
+              </div>
+              <div className="rounded-xl border border-line bg-surface p-3 text-center min-w-[130px]">
+                <p className="text-xs font-medium text-ink-muted">Pico Estimado</p>
+                <p className="text-lg font-bold text-ink">{previsao.pico_maximo_estimado_kw.toFixed(1)} kW</p>
+                <span className="text-[11px] text-ink-subtle">
+                  Contratado: {previsao.capacidade_contratada_kw} kW
+                </span>
+              </div>
+              <div className="rounded-xl border border-line bg-surface p-3 text-center min-w-[130px]">
+                <p className="text-xs font-medium text-ink-muted">Ocupação Rede</p>
+                <p className={`text-lg font-bold ${previsao.alerta_sobrecarga ? "text-danger" : "text-emerald-600"}`}>
+                  {previsao.taxa_ocupacao_transformador_pct}%
+                </p>
+                <span className="text-[11px] font-medium text-ink-subtle">
+                  {previsao.alerta_sobrecarga ? "Atenção: Sobrecarga" : "Margem Segura"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Alertas Ativos da Rede (Isolation Forest) */}
+      {alertas && alertas.length > 0 && (
+        <Card className="border border-warning/30 bg-warning/5 p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-warning/15 text-warning">
+              <AlertTriangle size={20} />
+            </div>
+            <div>
+              <Heading level={2} className="text-base">
+                Anomalias Identificadas pela IA ({alertas.length})
+              </Heading>
+              <p className="text-xs text-ink-subtle">
+                Triagem multivariada via Isolation Forest (análise de potência instantânea, taxa kWh/h e duração)
+              </p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {alertas.map((alerta: any, idx: number) => (
+              <div
+                key={alerta.id_alerta || idx}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-line bg-surface p-3 text-sm"
+              >
+                <div className="flex items-start gap-2.5">
+                  <span className="mt-1.5 inline-block size-2 rounded-full bg-danger shrink-0" />
+                  <div>
+                    <p className="font-semibold text-ink">{alerta.mensagem}</p>
+                    <p className="text-xs text-ink-subtle">
+                      {alerta.criado_em ? new Date(alerta.criado_em).toLocaleString("pt-BR") : "Sessão avaliada"} · Unidade {alerta.id_unidade ? `Apto ${alerta.id_unidade}` : "Rede Geral"}
+                    </p>
+                  </div>
+                </div>
+                <span className="self-start sm:self-center shrink-0 rounded-full bg-danger/10 px-2.5 py-0.5 text-xs font-bold text-danger uppercase tracking-wide">
+                  {alerta.severidade || "Alta"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.75fr)]">
         <Card className="p-4 sm:p-5">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <Heading level={2}>Consumo e demanda</Heading>
+              <Heading level={2}>Consumo e Demanda</Heading>
               <p className="mt-1 text-sm text-ink-subtle">
-                Últimos 7 dias · dados simulados
+                {showForecast ? "Projeção multivariada via modelo Ridge (próximos 14 dias)" : "Curva horária de distribuição da frota"}
               </p>
             </div>
-            <Select aria-label="Período do gráfico" defaultValue="week">
-              <option value="week">Esta semana</option>
-              <option value="month">Este mês</option>
-            </Select>
+            <div className="flex items-center gap-1.5 rounded-xl border border-line bg-surface-muted p-1">
+              <button
+                type="button"
+                onClick={() => setShowForecast(false)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${!showForecast ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink"}`}
+              >
+                Histórico
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowForecast(true)}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${showForecast ? "bg-brand text-white shadow-sm" : "text-ink-muted hover:text-ink"}`}
+              >
+                <Sparkles size={13} /> Projeção IA (Ridge)
+              </button>
+            </div>
           </div>
-          <EnergyAreaChart />
+          <EnergyAreaChart showForecast={showForecast} />
           <div className="flex flex-wrap gap-4 border-t border-line pt-4 text-xs font-semibold text-ink-muted">
             <span className="flex items-center gap-2">
               <span className="size-2 rounded-full bg-info" /> Consumo:{" "}
@@ -154,6 +259,12 @@ export function AdminOverview() {
             <span className="flex items-center gap-2">
               <span className="size-2 rounded-full bg-brand" /> Pico: 128 kW
             </span>
+            {showForecast && previsao && (
+              <span className="flex items-center gap-2 text-emerald-600">
+                <span className="size-2 rounded-full bg-emerald-500" /> Projeção 30d:{" "}
+                {previsao.kwh_total_previsto.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh
+              </span>
+            )}
           </div>
         </Card>
 
@@ -335,10 +446,11 @@ export function AdminOperations() {
   const [chargerBookings, setChargerBookings] = useState<any[]>([])
   const [loadingBookings, setLoadingBookings] = useState(false)
   const [cancelingBookingId, setCancelingBookingId] = useState<string | number | null>(null)
+  const [isSyncing, setIsSyncing] = useState(false)
 
   useEffect(() => {
     if (!selected) {
-      setChargerBookings([])
+      setChargerBookings((prev) => (prev.length === 0 ? prev : []))
       return
     }
     let active = true
@@ -409,14 +521,24 @@ export function AdminOperations() {
           </p>
         </div>
         <Button
-          onClick={() =>
-            notify(
-              "Sincronização concluída. Todos os pontos estão atualizados.",
-              "info",
-            )
-          }
+          disabled={isSyncing}
+          onClick={async () => {
+            setIsSyncing(true)
+            try {
+              await refreshData()
+              notify(
+                "Sincronização concluída. Carregadores e pontos atualizados diretamente do banco.",
+                "success",
+              )
+            } catch (err: any) {
+              notify("Erro ao sincronizar com o banco de dados.", "danger")
+            } finally {
+              setIsSyncing(false)
+            }
+          }}
         >
-          <Power size={18} /> Sincronizar rede
+          <Power className={isSyncing ? "animate-spin" : ""} size={18} />
+          {isSyncing ? "Sincronizando..." : "Sincronizar rede"}
         </Button>
       </div>
       <Card className="p-4">

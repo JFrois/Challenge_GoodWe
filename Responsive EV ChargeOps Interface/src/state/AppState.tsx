@@ -4,14 +4,17 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   type ReactNode,
 } from "react"
 import type {
+  AlertaRede,
   AssistantMessage,
   Booking,
   Charge,
   Charger,
   ChargingSession,
+  PrevisaoDemanda,
   Role,
 } from "@/types/domain"
 import { fetchAdminDashboard, fetchResidentDashboard, fetchReservations } from "@/data/apiClient"
@@ -48,6 +51,8 @@ type State = {
     activeSessions: number
     activeAlerts: number
   } | null
+  previsao?: PrevisaoDemanda | null
+  alertas?: AlertaRede[]
 }
 
 type SetAuthAction = {
@@ -124,6 +129,8 @@ const baseState: State = {
   isLoading: true,
   error: null,
   residentMetrics: null,
+  previsao: null,
+  alertas: [],
 }
 
 function restoreState(): State {
@@ -259,9 +266,11 @@ const AppStateContext = createContext<AppStateValue | null>(null)
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, restoreState)
+  const isFetchingRef = useRef(false)
 
   const refreshData = async () => {
-    if (!state.authToken) return;
+    if (!state.authToken || isFetchingRef.current) return;
+    isFetchingRef.current = true;
     
     dispatch({ type: "set-fetch-state", isLoading: true, error: null })
     try {
@@ -299,6 +308,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             chartData: dashData?.chartData || state.chartData,
             bookings: formattedBookings,
             adminMetrics: dashData?.metrics || null,
+            previsao: dashData?.previsao || null,
+            alertas: dashData?.alertas || [],
           },
         })
       } else {
@@ -356,6 +367,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       } else {
         dispatch({ type: "set-fetch-state", isLoading: false, error: err.message })
       }
+    } finally {
+      isFetchingRef.current = false
     }
   }
 

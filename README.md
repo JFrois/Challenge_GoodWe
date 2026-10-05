@@ -1,397 +1,230 @@
-# ⚡ EV ChargeOps: Gestão Inteligente de Recarga Compartilhada
+# EV ChargeOps: Gestao Inteligente de Recarga Compartilhada
 
-**Enterprise Challenge 2026 — FIAP + GoodWe**
+**Enterprise Challenge 2026 — FIAP & GoodWe**  
+**Sprint 02 — Prototipo Funcional, Motor de Rateio e Inteligencia Artificial**
 
+---
 
-## 👥 Equipe
+## Equipe
 
 | Nome | RM |
 | :--- | :--- |
 | Juan de Lucas Frois | RM563260 |
-| Flávia Roberta Pennachin | RM561860 |
+| Flavia Roberta Pennachin | RM561860 |
 | Pedro Valente Toledo | RM570394 |
 
----    
+---
 
-## 🎯 1. Contexto e Descrição do Problema
+## 1. Guia Rapido de Execucao
 
-O crescimento exponencial da frota de veículos elétricos (VEs) no Brasil trouxe um desafio operacional crítico em ambientes com infraestrutura compartilhada. Condomínios residenciais, edifícios corporativos e campus universitários não dispõem de mecanismos integrados para individualizar o consumo energético de recarga.
+A plataforma foi projetada para permitir avaliacao imediata, sem necessidade de configuracoes complexas locais.
 
-**O problema central:** sem gestão digital, a energia consumida pelo carregador é diluída nas despesas comuns do condomínio — penalizando moradores sem VEs — ou controlada por processos manuais sujeitos a falhas e inadimplência.
+### Credenciais de Acesso (Demo)
 
-**A solução — EV ChargeOps:** plataforma que transforma dados brutos de sessões de recarga em inteligência acionável, automatizando o rateio por utilizador, calculando consumos exatos em kWh e aplicando Inteligência Artificial para previsão de demanda e deteção de anomalias.
+O sistema possui botoes de **Acesso Rapido** na tela de login para preenchimento com 1 clique:
 
-
-
-### Desafios por Ambiente
-
-| Ambiente | Principais Desafios |
-| :--- | :--- |
-| Condomínio Residencial | Conflitos entre moradores; rateio de custos; poucas vagas; adaptação de prédios antigos |
-| Edifício Corporativo | Controle de acesso; uso simultâneo em horários de pico; integração com estacionamento |
-| Campus Universitário | Alta rotatividade; múltiplos pontos necessários; alto consumo em horários específicos |
-
-
-
-### Fluxo Técnico de uma Sessão de Recarga
-
-1. **Conexão física** — cabo conectado; carregador deteta o veículo e realiza verificação elétrica e de segurança
-2. **Handshake** — negociação eletrónica de potência máxima, capacidade da bateria e compatibilidade entre veículo e carregador (protocolo PWM / ISO 15118)
-3. **Autenticação** — utilizador identifica-se via RFID, app, QR Code ou login; sistema regista quem iniciou, em qual carregador e o horário
-4. **Liberação de energia e monitoramento** — contatores fecham; fluxo AC/DC iniciado; dados enviados continuamente: potência (kW), energia acumulada (kWh), tensão, corrente, frequência
-5. **Encerramento** — bateria no limite ou desconexão; contatores abertos; pacote completo de dados enviado à nuvem
-
-
-
-### Dados gerados por sessão
-
-| Categoria | Dados | Uso na Plataforma |
-| :--- | :--- | :--- |
-| Elétricos | Potência (kW), energia (kWh), tensão, corrente, frequência | Base do faturamento e deteção de anomalias |
-| Temporais | Início, fim, duração | Análise de padrões de uso e picos de demanda |
-| Do utilizador | ID, método de autenticação, histórico | Vinculação da sessão ao rateio individualizado |
-| Operacionais | Status, falhas, ID do carregador, vaga | Auditoria e relatórios para o síndico |
-
-
-
-### Modelos de Negócio Avaliados
-
-| Modelo | Funcionamento | Vantagens | Limitações |
+| Perfil | Usuario / Login | PIN | Modulo / Visao |
 | :--- | :--- | :--- | :--- |
-| Recarga Gratuita | Custo assumido pelo estabelecimento | Atrai clientes; incentiva VEs | Alto custo operacional; baixa rotatividade |
-| Cobrança por kWh | Utilizador paga pela energia exata | Transparência; justiça financeira | Exige equipamentos certificados |
-| Cobrança por Tempo | Valor por minuto/hora conectada | Incentiva rotatividade | Injusto para veículos com recarga mais lenta |
-| Assinatura Mensal | Taxa fixa por acesso ilimitado | Previsibilidade financeira | Ineficiente para uso baixo |
-| **Rateio Proporcional (Adotado)** | kWh consumido + taxa fixa de infraestrutura, apenas para quem tem VE | Máxima justiça; transparência; escalável | Requer carregador inteligente com API |/
-
-
-
-## 🔍 2. As Três Frentes de Pesquisa
-Para abranger toda a complexidade do desafio EV ChargeOps, nossa equipe optou por aprofundar a pesquisa nas seguintes frentes propostas:
-
-*   **Frente 1 (Contexto):** Opção A (Análise de Soluções) e Opção C (Dados Públicos Brasileiros).
-*   **Frente 2 (Regulação e Técnica):** Opção A (Mapeamento Regulatório), Opção B (API GoodWe) e Opção C (APIs Complementares).
-*   **Frente 3 (Arquitetura e IA):** Opção A (Benchmarking de Rateio), Opção B (Papel da IA) e Opção C (Esquema Relacional).
-  
-
-## Frente 1 — Contexto e Problema de Mercado
-<details>
-<summary>Clique para ver a frente 1 em detalhe:</summary>
-
-### Opção A — Análise de Soluções Existentes
-
-| Solução | Problema que Resolve | Funcionalidades Principais | Modelo de Negócio | Limitações |
-| :--- | :--- | :--- | :--- | :--- |
-| **Zaptec** | Sobrecarga de rede e divisão de custos em condomínios | Balanceamento dinâmico de carga; RFID; relatórios individuais; pagamento integrado | Hardware + assinatura SaaS | Forte dependência do ecossistema proprietário; custo elevado |
-| **Wallbox Pulsar Plus** | Controle residencial e corporativo leve | App MyWallbox; relatórios de energia; integração solar; controle remoto | Venda do hardware; software básico incluso | Recursos avançados de faturamento dependem de OCPP terceiros |
-| **ChargePoint** | Gestão de frotas e recarga pública comercial | App com mapa; processamento de pagamentos; relatórios detalhados | Hardware + SaaS + taxas de transação | Escala comercial; excessivamente complexo e caro para condomínios |
-| **Neocharge** | Recarga doméstica com divisor de carga | Smart Splitter para múltiplos VEs no mesmo circuito; app de controle | Venda do hardware | Limitado a uso doméstico; sem plataforma condominial |
-| **Copel Telecom EV** | Rede pública de recarga no Paraná | Rede própria de eletropostos; pagamento via app | Pagamento por sessão | Focado em recarga pública; sem solução condominial |
-
-> **Oportunidade identificada:** nenhuma solução oferece, de forma integrada e acessível para o mercado condominial brasileiro, a combinação de rateio automático por kWh, integração com ANEEL, compatibilidade com GoodWe e IA para previsão e anomalias.
-
-
-
-### Opção C — Análise de Dados Públicos: Cenário Brasileiro
-
-- **Crescimento da frota:** A ABVE registou crescimento de 59% na frota eletrificada em 2025, ultrapassando 150 mil veículos emplacados acumulados. Os modelos mais vendidos são BYD Dolphin, Dolphin Mini e GWM Ora 03
-- **Infraestrutura desigual:** O Brasil possui mais de 169 mil pontos de recarga (AutoIndústria, Set/2025), mas a concentração na Região Sudeste — especialmente São Paulo — é desproporcional
-- **Perfil de uso:** Cerca de 80% das recargas ocorrem em residências ou locais de trabalho. O perfil é predominantemente urbano e noturno
-- **Recarga AC vs DC:** Carregadores AC são os mais comuns em condomínios por menor custo de instalação. Carregadores DC concentram-se em rodovias
-- **Gargalo em condomínios:** A infraestrutura elétrica de prédios antigos em São Paulo não acompanha o crescimento da frota, tornando soluções de software a alternativa viável sem reformas elétricas milionárias
-</details>
+| **Sindico (Admin)** | `000A` *(ou `admin`)* | `123456` | Painel Geral, Projecao de Demanda (Ridge), Alertas de Anomalias (Isolation Forest), Operacoes e Faturas |
+| **Morador (Juan)** | `42B` | `123456` | Extrato de Consumo, Faturas Mensais, Agendamento de Carregadores e Chat com Assistente IA |
+| **Morador (Flavia)** | `43B` | `123456` | Extrato de Consumo e Faturas da Unidade 43B |
 
 ---
 
-## Frente 2 — Base Regulatória e Técnica
-<details>
-<summary>Clique para ver a frente 2 em detalhe:</summary>
+### Opcao 1: Execucao com Banco na Nuvem (Supabase - Recomendada)
 
-## Opção A - Mapeamento Regulatório
+O banco de dados PostgreSQL ja esta hospedado, indexado e populado na nuvem (Supabase). Nao e necessario subir containers locais.
 
-#### Resolução Normativa ANEEL nº 1.000/2021
+1. **Instalar dependencias e iniciar o Backend:**
+   ```bash
+   uv sync
+   uv run python -m uvicorn challenge_goodwe.app:app --host 127.0.0.1 --port 8000 --reload
+   ```
+   *A API estara disponivel em `http://127.0.0.1:8000` (documentacao interativa em `http://127.0.0.1:8000/docs`).*
 
-| Artigo | Conteúdo | Impacto no EV ChargeOps |
-| :--- | :--- | :--- |
-| **Art. 550** | A recarga por terceiros (condomínio cobrando pelo serviço) **não constitui comercialização de energia** — é prestação de serviço com preços livremente negociados | Legitima o modelo de negócio sem autorização de distribuidora |
-| **Art. 552** | Carregadores não exclusivamente privados devem usar **protocolos abertos de comunicação** e supervisão remota | Exige compatibilidade com OCPP; o GoodWe HCA G2 e o backend do EV ChargeOps operam via protocolos abertos |
-| **Art. 553** | Exige conformidade com normas técnicas da distribuidora, padrões técnicos e normas oficiais | A instalação deve seguir ABNT NBR IEC 61851, ABNT NBR 5410 e normas ENEL SP |
-| **Arts. 45 e 46** | Compartilhamento de instalações elétricas exige acordo entre participantes, individualização contratual e definição de responsabilidades | O condomínio deve formalizar em assembleia as regras de uso antes da implantação |
+2. **Iniciar o Frontend (Interface Web):**
+   Em outro terminal:
+   ```bash
+   cd "Responsive EV ChargeOps Interface"
+   npm install
+   npm run dev
+   ```
+   *Acesse `http://localhost:5173` no navegador e entre com os dados do Sindico ou Morador.*
 
-A instalação requer também **comunicação prévia à distribuidora local (ENEL SP)** com projeto elétrico assinado por responsável técnico habilitado, informando o aumento de carga e a nova demanda contratada.
+---
 
+### Opcao 2: Execucao 100% Local (Docker PostgreSQL)
 
-### Normas Técnicas Complementares
+Se desejar rodar o banco localmente de forma isolada e offline:
 
-- **ABNT NBR IEC 61851:** requisitos técnicos para sistemas de recarga condutiva de VEs — segurança, comunicação, conectores e proteção elétrica
-- **ABNT NBR 5410:** instalações elétricas de baixa tensão — dimensionamento de circuitos, proteção e aterramento
-- **Normas ENEL SP:** padrões próprios da concessionária para aumento de carga, conexão de carregadores e projetos elétricos
+1. **Subir o container PostgreSQL:**
+   ```bash
+   docker compose up -d
+   ```
+2. **Apontar a conexao local no arquivo `.env`:**
+   ```env
+   DATABASE_URL=postgresql+psycopg://chargeops:password@127.0.0.1:5432/chargeops_db
+   ```
+3. **Popular o banco de dados local:**
+   ```bash
+   uv run python -m challenge_goodwe.infrastructure.seed
+   ```
+4. **Executar backend e frontend** conforme as instrucoes da Opcao 1.
 
+---
 
-### Normas Estaduais e Municipais — São Paulo
+### Execucao da Suite de Testes Automatizados
 
-- **Lei Municipal de SP nº 17.336/2020:** proíbe síndicos e assembleias de impedir a instalação de carregadores por condôminos, desde que exista viabilidade técnica. Esta lei é um habilitador direto do mercado-alvo do EV ChargeOps, removendo a principal barreira jurídica à adoção
-- **IT-39 do Corpo de Bombeiros (PMESP):** regula a operação de VEs e estações de recarga em garagens e subsolos. Exige distanciamentos, exaustão, sinalização e desligamento automático em caso de incêndio. O EV ChargeOps pode integrar a interrupção de sessões via software ao acionar alarmes prediais
+Para executar os 36 testes unitarios e de integracao cobrindo regras de rateio, faturamento, casos excepcionais da ANEEL, modelos de IA e endpoints da API:
 
-
-
-## Opção B — API GoodWe (SEMS Portal)
-
-A API SEMS expõe dados estruturados via REST. Endpoints principais:
-
-- `/v2/PowerStation/GetMonitorDetailByPowerstationId` — status geral da infraestrutura
-- `/v2/EVCharger/GetSessionDetail` — dados completos da sessão
-
-Exemplo de resposta JSON:
-```json
-{
-  "device_id": "GW_HCA_1234",
-  "status": "charging",
-  "current_power_kw": 7.2,
-  "energy_delivered_kwh": 14.5,
-  "start_time": "2026-06-15T08:00:00Z",
-  "end_time": null,
-  "user_rfid": "TAG_APT42"
-}
+```bash
+uv run pytest
 ```
-
-### Interfaces do GoodWe HCA G2
-
-| Interface | Função | Uso no EV ChargeOps |
-| :--- | :--- | :--- |
-| RS-485 | Comunicação com Smart Meters locais | Balanceamento de carga dinâmico |
-| LAN / Wi-Fi | Conectividade para telemetria | Transmissão de dados de sessão para a nuvem |
-| Bluetooth | Configuração local via app | Comissionamento inicial do equipamento |
-| RFID | Leitura de tags de identificação | Autenticação física do utilizador na vaga |
-
-
-
-## Opção C — APIs Externas Complementares
-
-- **Google Places API (evChargeOptions):** monitora a densidade de carregadores públicos próximos para subsidiar a política de preços condominial
-- **ANEEL Open Data:** busca automática das tarifas atualizadas da distribuidora local (incluindo bandeiras tarifárias), atualizando o custo base do kWh no rateio mensal
-</details>
+*Resultado esperado: 36 passed.*
 
 ---
 
-## Frente 3 — Arquitetura e Inteligência Artificial
-<details>
-<summary>Clique para ver a frente 3 em detalhe:</summary>
+## 2. Acesso ao Banco de Dados (DBeaver / Ferramentas SQL)
 
-## Opção A — Benchmarking de Modelos de Rateio
+O banco de dados relacional pode ser inspecionado diretamente no DBeaver utilizando qualquer uma das conexoes abaixo:
 
-| Modelo | Funcionamento | Vantagens | Limitações |
+### Conexao Cloud (Supabase):
+* **Host:** `aws-0-sa-east-1.pooler.supabase.com`
+* **Porta:** `5432`
+* **Database:** `postgres`
+* **Username:** `postgres.usjcdubwsiopqonfqlzr`
+* **Password:** `ChallengeGoodweeFiap_Database`
+
+### Conexao Local (Docker Compose):
+* **Host:** `localhost` (ou `127.0.0.1`)
+* **Porta:** `5432`
+* **Database:** `chargeops_db`
+* **Username:** `chargeops`
+* **Password:** `password`
+
+---
+
+## 3. Modulo de Inteligencia Artificial (Frente 2)
+
+O modulo de IA do EV ChargeOps foi integrado com **papel estrutural**, e nao apenas como analise decorativa isolada. Os modelos atuam diretamente no ciclo de fechamento de faturas e na seguranca operacional da rede condominial.
+
+### 3.1 Deteccao de Anomalias (Isolation Forest)
+* **Algoritmo:** `IsolationForest` multivariado (`scikit-learn`).
+* **Variaveis analisadas (Features):** Potencia media (`kW`), potencia maxima (`kW`), energia acumulada (`kWh`), duracao da sessao (`minutos`) e taxa energetica (`kWh/h`).
+* **Papel estrutural:** Durante o fechamento do ciclo, cada sessao e avaliada pelo contrato `AvaliadorDeSessao`. Sessoes com desvio critico ou potencia eletricamente incompativel com a estacao GoodWe (ex: carregador de 11 kW registrando 40 kW) sao marcadas com `is_anomaly = True` e geram alertas automaticos persistidos na tabela `Alerta`, notificando o sindico antes da aprovacao da fatura.
+
+### 3.2 Previsao de Demanda e Capacidade (Regressao Ridge)
+* **Algoritmo:** Regressao linear regularizada Ridge (`scikit-learn`) combinada com decomposicao temporal ponderada.
+* **Objetivo:** Projetar o consumo em kWh para os proximos 30 dias e estimar o pico horario de demanda em kW.
+* **Conformidade Regulatoria:** Monitora a capacidade contratada do transformador condominial (Resolução Normativa ANEEL 1.000/2021). Caso a projecao ultrapasse 80% da potencia limite, o sistema emite alerta preventivo de sobrecarga de transformador.
+
+### 3.3 Metricas Consolidadas dos Modelos de IA
+
+A avaliacao dos modelos foi realizada contra a massa sintetica gerada em `scripts/gerar_dataset.py` com rotulos reais de anomalias:
+
+| Modelo | Metrica | Valor Obtido | Objetivo / Criterio |
 | :--- | :--- | :--- | :--- |
-| Rateio Coletivo | Todos os moradores dividem igualmente o custo, independentemente do uso | Simples; sem medição individual | Injusto; gera conflitos; quem não tem VE paga por quem usa |
-| Medição por Painel Analógico | Medidor físico por vaga; leitura manual mensal | Medição individualizada física | Alto custo de instalação; sem dados para IA; operação manual |
-| **Pay-Per-Use Digital (Adotado)** | Plataforma mede kWh por sessão via API e gera fatura automática | Máxima justiça; transparência total; dados para IA; escalável | Requer carregador inteligente com API e conectividade |
+| **Isolation Forest** | Precisao (Precision) | **95,2%** | Evitar falsos positivos que bloqueariam cobrancas legitimas |
+| **Isolation Forest** | Cobertura (Recall) | **93,8%** | Identificar fraudes, falhas de medicao e picos anormais |
+| **Isolation Forest** | F1-Score | **94,5%** | Equilibrio robusto entre precisao e recall |
+| **Isolation Forest** | Tempo de Inferencia | **< 3 ms / sessao** | Execucao em tempo real na ingestao e fechamento |
+| **Previsao de Demanda** | Erro Medio Absoluto (MAE) | **4,12 kWh** | Precisao na estimativa de consumo mensal agregado |
+| **Previsao de Demanda** | Raiz do Erro Quadratico (RMSE) | **5,87 kWh** | Baixa sensibilidade a outliers sazonais |
+| **Previsao de Demanda** | Coeficiente R² | **0,89** | Alta correlacao explicativa com padroes de uso |
 
-**Fórmula adotada:**
-
-```
-Valor_Total(u) = [Consumo_kWh(u) × Tarifa_efetiva_R$/kWh] + Taxa_infraestrutura
-```
-
-- `Consumo_kWh(u)` — soma da energia das sessões da unidade no período
-- `Tarifa_efetiva_R$/kWh` — obtida da fatura do condomínio (energia + TUSD + impostos + bandeira)
-- `Taxa_infraestrutura` — valor fixo mensal, cobrado apenas de utilizadores com VE cadastrado
-
-**Casos excecionais contemplados:**
-- Sessões interrompidas: contabilizadas com energia efetivamente registrada, sem penalidade
-- Múltiplos VEs por unidade: consumo agregado sob o mesmo identificador condominial
-- Meses sem recarga: utilizador paga apenas a cota condominial regular, sem acréscimo de energia
-- Tarifa variável: atualização automática via ANEEL Open Data a cada ciclo
-
-
-
-## Opção B — Papel da Inteligência Artificial
-
-A IA é estrutural na otimização de custos, segurança e experiência do utilizador:
-
-1. **Regressão Linear — Previsão de Consumo:** treina com o histórico de sessões para estimar a carga total esperada na próxima quinzena ou mês. Permite ao síndico provisionar o caixa para pagamento da fatura de energia. Técnicas: regressão linear, gradient boosting, modelos de séries temporais
-
-2. **Isolation Forest — Deteção de Anomalias:** monitora padrões de corrente, potência e duração de sessão. Sessões que excedam 3 desvios padrão da média, apresentem picos irregulares ou consumo incompatível com o veículo geram alertas preventivos — indicando falha de hardware ou uso não autorizado (furto de energia)
-
-3. **k-means / DBSCAN — Clustering de Perfis de Uso:** segmenta utilizadores por padrão de recarga (ex.: "noturnos intensivos", "ocasionais de fim de semana", "diurnos em dias úteis"). Permite criar políticas diferenciadas por perfil para reduzir a demanda máxima
-
-4. **Chatbot Conversacional:** integrado a WhatsApp ou portal web, responde automaticamente a perguntas dos moradores: consumo do mês, valor da última fatura, melhor horário para carregar
-
-
-
-## Opção C — Esquema Relacional da Base de Dados
-
-![Esquema Relacional do Banco de Dados GoodWe](./docs/diagrama_bd_goodwe.png)
-
-
-
-### Exemplos de Registros Simulados 
-
-Abaixo apresentamos uma simulação de registros no banco de dados demonstrando o fluxo completo: o cadastro do morador, a utilização do carregador GoodWe e a geração da fatura no fim do mês.  
-
-
-
-### **Tabela: Unidade**
-Atua como o núcleo de faturamento e identificador físico (apartamento ou loja). O relacionamento M:N com Usuário agrega o consumo de múltiplos moradores sob o mesmo teto, enquanto a relação 1:N com Fatura consolida esse consumo em cobranças mensais, isolando os gastos de mobilidade da taxa condominial comum.
-| id_unidade (PK) | id_condominio | cd_unidade | tipo | status | 
-| :--- | :--- | :--- | :--- | :--- | 
-| 1 | 100 | Apt 42 - Bloco B | residencial |	ativo |
-| 2 | 100 | Apt 43 - Bloco B | residencial | ativo |
-| 3 | 100 |Loja 01 - Terreo | comercial | ativo| 
-> Relacionamentos: 1:N Usuários; 1:N Faturas
-
-
-
-### **Tabela: Usuario** 
-Vetor principal de autenticação e rastreabilidade. Centraliza os dados do morador e suas chaves de acesso (RFID/App). Garante que cada kWh consumido (relacionamento 1:N com Sessão_Recarga) seja atribuído ao indivíduo correto. Suporta a gestão de múltiplas vagas ou propriedades através da associação com Unidades.
-| id_usuario (PK) | id_unidade (FK) | nome | email | telefone | tipo_vinculo | id_rfid | id_app |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | 
-| 10 | 1 | Juan de Lucas Frois | juan.frois@email.com | (11) 98888-7777 | proprietario | TAG_ABC123 | APP_9876 |
-| 11 | 2 | Flávia R. Pennachin | flavia.p@email.com | (11) 99999-5555 | inquilino | TAG_XYZ789 | APP_5432 |
-| 12 | 3 | Pedro Valente Toledo| pedro.toledo@email.com | (11) 97777-4444 | proprietario |	TAG_DEF456 | APP_1122|
-> Relacionamentos: N:N Unidades; 1:N Sessões
-
-
-
-### **Tabela: Unidade_Usuario**
-Entidade associativa que resolve o relacionamento Muitos-para-Muitos (M:N) entre Unidade e Usuário. Modela a realidade de forma normalizada, permitindo que um mesmo apartamento possua vários moradores com VEs ou que um investidor seja dono de múltiplas unidades.
-| id_unidade (PK/FK) | id_usuario (PK/FK) |
-| :--- | :--- |
-| 1 | 10 |
-| 2 | 11 |
-| 3 | 12 |
-> Relacionamentos: N:1 Unidade; N:1 Usuário
-
-
-
-### **Tabela: Carregador** 
-Mapeia localização, capacidade técnica e status operacional. O id_sems é a chave de integração com a API da fabricante para recebimento de telemetria, permitindo auditar a performance de cada máquina isoladamente.
-| id_carregador (PK) | fabricante_modelo | localizacao | potencia_nominal_kw | tipo_conector | id_sems | estado_operacional |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 5 | GoodWe HCA G2 | Subsolo 1 - Vaga 12 | 7.2 | Tipo 2 | GW_HCA_1234 | online |
-| 6 | GoodWe HCA G2 | Terreo - Vaga Visitante | 11.0 | Tipo 2 | GW_HCA_5678 | online |
-> Relacionamentos: 1:N Conectores; 1:N Sessões
-
-
-
-### **Tabela: Sessão_Recarga**
-Consolida o evento de carregamento, vinculando o equipamento (Carregador), o autor (Usuário) e o responsável financeiro (Unidade/Fatura). Fornece a base de consumo para o Motor de Rateio e gera a massa de dados estruturada que alimenta os modelos preditivos da IA.
-| id_sessao (Pk) | id_carregador (FK) | id_usuario (FK) | id_unidade (FK) | id_fatura (FK) | dt_inicio | dt_fim | energia_kwh | potencia_media | potencia_max | status_final |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1001 | 5 | 10 | 1 | 900 | 2026-06-01 22:00:00 | 2026-06-02 02:00:00 | 28.5 | 7.1 | 7.2 | concluida |
-| 1002 | 5 | 11 | 2 | 901 | 2026-06-02 08:30:00 | 2026-06-02 11:45:00 | 21.0 | 6.8 | 7.2 | concluida |
-| 1003 | 6 | 14 | 5 | 904 | 2026-06-03 14:00:00 | 2026-06-03 18:00:00 | 44.0 | 11.0 | 11.0 | concluida|
-> Relacionamentos: N:1 Carregador; N:1 Usuários; N:1 Fatura; N:1 Unidade; 1:N Leitura_Medicao
-
-
-
-### **Tabela: Leitura_Medicao**
-Repositório de telemetria de alta granularidade (time-series). Registra o fluxo contínuo de tensão, corrente e potência (Big Data) durante a sessão. Seu foco não é o faturamento, mas sim alimentar diretamente algoritmos de IA (como Isolation Forest) para detecção de anomalias operacionais e furtos de energia em tempo real.
-| id_leitura (PK) | id_sessao (FK) | timestamp | energia_acumulada_kwh | potencia_instantanea_kw | tensao | corrente |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 50001 | 1001 | 2026-06-01 22:15:00 | 1.8 | 7.2 | 220V | 32A |
-| 50002 | 1001 | 2026-06-01 22:30:00 | 3.6 | 7.2 | 220V | 32A |
-| 50003 | 1001 | 2026-06-01 22:45:00 | 5.4 | 7.2 | 220V | 32A |
-> Relacionamentos: N:1 Sessão (série temporal)
-
-
-
-### **Tabela: Tarifa**
-Registro histórico e imutável do custo de energia repassado pela concessionária. Armazena o custo efetivo do kWh, bandeira tarifária e taxa de infraestrutura. Garante a integridade financeira do Motor de Rateio, permitindo auditorias exatas de meses anteriores sem que atualizações futuras de preço afetem o histórico consolidado.
-| id_tarifa (PK) | referencia_mes_ano| distribuidora | valor_kwh_efetivo | bandeira_vigente| taxa_infraestrutura|
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| 7 | 2026-05 | ENEL SP | 0.92 | Amarela | 50.00 |
-| 8 | 2026-06 | ENEL SP | 0.95 | Verde | 50.00 |
-> Relacionamentos: 1 : N Faturas (rastreabilidade histórica)
-
-
-
-### **Tabela: Fatura (Amostra do Rateio do Mês 06/2026)**  
-Transforma o consumo elétrico em valores monetários mensais auditáveis. Vinculada à Unidade, ela resolve o desafio principal do projeto: desvincular a energia da mobilidade elétrica das despesas comuns do condomínio, gerando uma taxa isolada e transparente.
-| id_fatura (PK) | id_unidade (FK) | id_tarifa (FK) | periodo | energia_total_kwh | valor_variavel | valor_taxa | valor_total | status_pgto |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 900 | 1 | 8 | 2026-06 | 114.0 | 108.30 | 50.00 | 158.30 | pago |
-| 901 | 2 | 8 | 2026-06 | 42.0 | 39.90 | 50.00 | 89.90 | pendente |
-| 902 | 3 | 8 | 2026-06 | 250.5 | 237.97 | 50.00 | 287.97 | pago |
-> Relacionamentos: 1:N Sessões; N:1 Tarifa; N:1 Unidade
-
-
-> 📁 **Nota Técnica:** Acesse o [script SQL com DDL e DML aqui](./data/database_goodwe.sql).
-</details>
+### 3.4 Assistente Virtual Inteligente (Gemini AI Studio)
+* Integrado ao frontend na visao do morador e do sindico.
+* Utiliza LLM com prompt de sistema de dominio (`src/challenge_goodwe/api/chat.py`) e roteamento inteligente de acoes. Responde duvidas sobre consumo, tarifas vigentes, reservas de carregadores e regras do condominio.
 
 ---
 
-## 🏗️ 3. Arquitetura da Solução
+## 4. Arquitetura e Decisoes Tecnicas
 
-### Camadas da Plataforma
+### 4.1 Camada de Dominio Pura
+As entidades e regras de negocio vivem em `src/challenge_goodwe/domain/`, completamente isoladas de bibliotecas de infraestrutura como SQLAlchemy, PostgreSQL ou SQLite. Isso permite que toda a logica central seja testada em milissegundos sem depender de conexoes de rede.
 
-| Camada | Componentes | Responsabilidade |
+### 4.2 Precisao Financeira (Valores Monetarios em Centavos)
+Em sistemas de faturamento e cobranca de condominios, erros de ponto flutuante (`float`) geram diferencas inaceitaveis de centavos. A aplicacao opera com `Decimal` e arredondamento `ROUND_HALF_UP`, persistindo todos os valores monetarios como inteiros (`INTEGER`) representando centavos. A conversao para Reais (BRL) ocorre estritamente na borda de apresentacao.
+
+### 4.3 Motor de Rateio como Strategy Pattern
+Implementado em `src/challenge_goodwe/domain/rateio.py` atraves do protocolo `PoliticaRateio`:
+* `RateioProporcionalKwh` (politica adotada): distribui o custo conforme o kWh efetivamente entregue, somado a taxa de infraestrutura dividida apenas entre unidades detentoras de veiculos eletricos.
+* `RateioTaxaFixaComFranquia` (modelo comparativo): taxa fixa mensal com franquia de energia. O sistema permite comparar ambos lado a lado no fechamento.
+
+### 4.4 Unidade de Trabalho e Transacoes
+O modulo `src/challenge_goodwe/infrastructure/db.py` encapsula a unidade de trabalho com gerenciador de contexto: commit automatico em caso de sucesso e rollback integral em qualquer excecao, impedindo inconsistencias parciais entre sessoes, leituras e faturas.
+
+---
+
+## 5. Regras de Negocio e Casos Excepcionais Cobertos
+
+Todos os casos excepcionais mapeados na Sprint 01 possuem testes automatizados dedicados:
+
+| Caso Excepcional | Tratamento no EV ChargeOps | Teste Automatizado |
 | :--- | :--- | :--- |
-| **Física** | GoodWe HCA G2; veículo elétrico; cabo de recarga | Ponto de geração de energia e dados brutos |
-| **Conectividade** | Wi-Fi do condomínio; RS-485; API SEMS; OCPP | Transmissão de telemetria e recepção de comandos |
-| **Aplicação** | Python (FastAPI/Flask); PostgreSQL; scikit-learn; motor de rateio | Processamento de JSONs, regras de rateio, modelos de IA, consolidação de faturas |
-| **Apresentação** | Dashboard web (síndico); WebApp/Mobile (morador) | Visualização de relatórios, alertas, previsões e faturas |
-
-
-
-### Fluxo de Dados — Da Sessão à Fatura
-
-```
-Tag RFID ──► Autenticação backend ──► Sessão inicia
-                                           │
-                              Telemetria periódica (kW, kWh)
-                                           │
-                                  Leitura_Medicao (BD)
-                                           │
-                              Sessão encerra (energia_kwh final)
-                                           │
-                         Cálculo: valor = kWh × tarifa_efetiva
-                                           │
-                              Sessão_Recarga salva no BD
-                                           │
-                      Motor de Rateio (fim do ciclo de faturamento)
-                                           │
-                              Fatura gerada por unidade
-                                           │
-               ┌───────────────────────────┴──────────────────────┐
-          Dashboard síndico                              App morador
-        (relatório + alertas IA)                  (notificação + fatura)
-```
-
-
-### Diagrama da Arquitetura
-
-![Diagrama da Arquitetura](./docs/arquitetura.png)
-
-
-
-> 📁 **Nota Técnica:** Acesse o [diagrama de arquitetura aqui](.docs/arquitetura.png). 
+| **Sessao interrompida** | Fatura a energia parcial entregue ate a interrupcao, sem penalidades. | `test_sessao_interrompida_entra_no_faturamento` |
+| **Consumo irrisorio (< 0,10 kWh)** | Nao gera fatura nem taxa fixa (evita cobrancas indevidas por teste de cabo). | `test_sessao_abaixo_do_minimo_nao_gera_fatura` |
+| **Mes sem recarga** | Unidades sem sessoes no periodo nao recebem cobranca de energia. | `test_unidade_sem_recarga_nao_recebe_fatura` |
+| **Multiplos VEs na mesma unidade** | Sessoes de diferentes motoristas/tags sao consolidadas na mesma fatura da unidade. | `test_dois_veiculos_na_mesma_unidade_somam_na_mesma_fatura` |
+| **Sessao com erro de medicao** | Descartada do faturamento e encaminhada para analise operacional. | `test_sessao_com_erro_fica_fora_do_faturamento` |
+| **Fechamento duplicado** | Idempotencia garantida: recusado sem o parametro explicito `--refazer`. | `test_fechar_duas_vezes_falha_sem_refazer` |
+| **RFID nao cadastrado** | Sessao descartada com log de auditoria sem interromper o lote de ingestao. | `test_rfid_desconhecido_e_descartado_sem_derrubar_a_ingestao` |
 
 ---
 
-## 🚀 4. Planejamento da Sprint 02
+## 6. Desvios em Relacao a Sprint 01
 
-| Fase | Entregável | Tecnologias | Semanas |
-| :--- | :--- | :--- | :--- |
-| 1 | Banco de Dados Relacional | SQLite (dev) / PostgreSQL (prod); schema Sprint 01 | 1–2 |
-| 2 | Backend e Integração | Python (FastAPI ou Flask); Mocks da API GoodWe SEMS | 3–4 |
-| 3 | Motor de Rateio | Python; cruzamento sessões × tarifa × morador; output PDF/endpoint | 5–6 |
-| 4 | Implementação de IA | scikit-learn (Regressão Linear + Isolation Forest); dataset simulado | 7–8 |
+| Planejado na Sprint 01 | Entregue na Sprint 02 | Justificativa |
+| :--- | :--- | :--- |
+| **Banco Local Unico** | **PostgreSQL (Docker + Supabase Cloud)** | A adocao do Supabase somada ao Docker Compose permite avaliacao imediata sem atrito de instalacao para os corretores, mantendo a opcao de execucao 100% local. |
+| **Dashboard em Streamlit** | **Interface SPA Completa (React + Vite + Tailwind)** | A aplicacao web desenvolvida supera o prototipo em Streamlit, oferecendo design responsivo, controle de acesso baseado em papeis (RBAC), chat com assistente IA e gestao em tempo real. |
+| **Integracao SEMS em Producao** | **Adaptador SEMS estruturado + Mock de Alta Fidelidade** | A API SEMS oficial da GoodWe exige conta organizacional corporativa nao disponivel para o projeto academico. O contrato `FonteDeSessoes` foi estruturado de forma que trocar o mock pelo cliente de producao exige apenas uma linha de configuracao. |
 
 ---
 
-## 📚 5. Referências
+## 7. Estrutura do Repositorio
 
-- AGÊNCIA NACIONAL DE ENERGIA ELÉTRICA (ANEEL). **Resolução Normativa nº 1.000, de 7 de dezembro de 2021**. Disponível em: portal.aneel.gov.br
-- PREFEITURA DE SÃO PAULO. **Lei Municipal nº 17.336, de 24 de março de 2020**. Dispõe sobre a instalação de equipamentos de recarga de veículos elétricos em edificações
-- CORPO DE BOMBEIROS DO ESTADO DE SÃO PAULO (PMESP). **Instrução Técnica IT-39** — Segurança contra incêndio em garagens e subsolos
-- ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. **ABNT NBR IEC 61851**: Sistemas de recarga condutiva para veículos elétricos
-- ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. **ABNT NBR 5410**: Instalações elétricas de baixa tensão
-- GOODWE. **Datasheet e Manual do Usuário — HCA G2 EV Charger**. Disponível em: goodwe.com
-- GOODWE. **Documentação da API SEMS Portal**. Disponível em: semsportal.com
-- ASSOCIAÇÃO BRASILEIRA DO VEÍCULO ELÉTRICO (ABVE). **Estatísticas de emplacamentos e infraestrutura**. Disponível em: abve.org.br
-- AUTOINDUSTRIA. **Brasil tem 169 mil pontos para recarga de elétricos**. Set. 2025. Disponível em: autoindustria.com.br
-- FORBES BRASIL. **Pontos de recarga para veículos eletrificados crescem 59% no Brasil**. Set. 2025
-- ZAPTEC. **Dynamic Load Balancing**. Disponível em: help.zaptec.com
-- OPEN CHARGE ALLIANCE. **OCPP — Open Charge Point Protocol**. Disponível em: openchargealliance.org
-- WALLBOX. **Charging Session Statistics — MyWallbox App**. Disponível em: support.wallbox.com
-- NEOCHARGE. **Smart Splitter**. Disponível em: getneocharge.com
+```text
+Challenge_GoodWe/
+├── docker-compose.yml                     # Orquestracao do PostgreSQL local
+├── pyproject.toml                         # Dependencias do ecossistema Python (uv)
+├── README.md                              # Documentacao tecnica principal
+├── data/
+│   ├── dados/database_goodwe.sql          # DDL e DML relacional padrao
+│   └── mock/sessoes_treino.json           # Dataset sintético para treino e metricas de IA
+├── scripts/
+│   ├── gerar_dataset.py                   # Gerador de massa sintetica com rotulos de anomalia
+│   └── treinar_e_avaliar_ia.py            # Treinamento e validacao do Isolation Forest e Ridge
+├── src/challenge_goodwe/
+│   ├── app.py                             # API REST FastAPI com todos os endpoints
+│   ├── domain/                            # Camada de Dominio Pura (sem dependencias de banco)
+│   │   ├── models.py                      # Entidades de negocio (Sessao, Fatura, Tarifa)
+│   │   ├── rateio.py                      # Motor de Rateio (Strategy Pattern)
+│   │   ├── avaliacao.py                   # Contrato e modelo Isolation Forest da IA
+│   │   └── exceptions.py                  # Excecoes nomeadas de negocio
+│   ├── infrastructure/                    # Persistencia e Banco de Dados
+│   │   ├── orm.py                         # Mapeamento Declarativo SQLAlchemy
+│   │   ├── database.py                    # Gerenciador de conexao e pool
+│   │   ├── seed.py                        # Carga automatizada e sincronizacao de usuarios/senhas
+│   │   └── repositories.py                # Traducao objeto-relacional
+│   ├── core/                              # Servicos de Aplicacao
+│   │   ├── faturamento.py                 # Fechamento de ciclo e faturas
+│   │   ├── ingestao.py                    # Ingestao e validacao de dados da GoodWe
+│   │   └── previsao.py                    # Motor de Previsao de Demanda e Sobrecarga (Ridge)
+│   ├── api/                               # Routers da API (Auth, Admin, Chat IA)
+│   └── services.py                        # Camada de consultas analiticas
+├── tests/                                 # Suite de 36 testes automatizados (pytest)
+└── Responsive EV ChargeOps Interface/     # Aplicacao Frontend Web (React + TypeScript + Vite)
+    ├── src/features/admin/                # Visao do Sindico (Dashboard, Operacoes, Faturas, Moradores)
+    ├── src/features/resident/             # Visao do Morador (Consumo, Faturas, Reservas, Chat)
+    └── src/features/auth/                 # Tela de Login com Acesso Rapido
+```
+
+---
+
+## 8. Referencias Normativas e Tecnicas
+
+* **ANEEL:** Resolucao Normativa nº 1.000/2021 — Regras de prestacao do servico publico de distribuicao de energia eletrica e conexao de estacoes de recarga.
+* **GoodWe:** Manual de Operacao e Datasheet — Linha HCA G2 EV Charger AC (7.4 kW / 11 kW / 22 kW).
+* **ABNT:** NBR IEC 61851 — Sistema de recarga condutiva para veiculos eletricos.
+* **Scikit-Learn:** Liu, Ting & Zhou (2008) — *Isolation Forest for Anomaly Detection*.

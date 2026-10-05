@@ -28,9 +28,14 @@ def inicializar_banco(
 
     conn = conexao or conectar()
     try:
-        # Limpa o banco antes de popular
+        # Limpa e recria o banco antes de popular
+        from challenge_goodwe.infrastructure.orm import Base
+        Base.metadata.create_all(conn.bind)
         if conn.bind.dialect.name == "postgresql":
             conn.execute(text('TRUNCATE "Sessao_Recarga", "Fatura", "Leitura_Medicao", "Alerta", "Reserva_Carregador", "Tarifa", "Carregador", "Unidade_Usuario", "Unidade", "Usuario" CASCADE;'))
+        else:
+            Base.metadata.drop_all(conn.bind)
+            Base.metadata.create_all(conn.bind)
             
         # Remove todos os comentarios para evitar split errado em ponto-e-virgula dentro de comentario
         script_sem_comentarios = re.sub(r'--.*', '', script)
@@ -45,6 +50,58 @@ def inicializar_banco(
                 clean_stmt = re.sub(r'INSERT INTO (\w+)', r'INSERT INTO "\1"', stmt, flags=re.IGNORECASE)
                 conn.execute(text(clean_stmt))
                 
+        conn.commit()
+
+        # Configurar credenciais de acesso padrao (PIN 123456)
+        from challenge_goodwe.infrastructure.orm import Usuario
+        from challenge_goodwe.auth.security import get_pin_hash
+
+        default_hash = get_pin_hash("123456")
+
+        mapa_logins = {
+            10: "42B",   # Juan (Apt 42 - Bloco B)
+            11: "43B",   # Flavia (Apt 43 - Bloco B)
+            12: "01T",   # Pedro (Loja 01 - Terreo)
+            13: "55A",   # Mariana (Apt 55 - Bloco A)
+            14: "11B",   # Carlos (Apt 11 - Bloco B)
+            15: "21B",   # Ana Beatriz (Apt 21 - Bloco B)
+            16: "31A",   # Roberto (Apt 31 - Bloco A)
+            17: "32A",   # Camila (Apt 32 - Bloco A)
+            18: "71C",   # Fernando (Apt 71 - Bloco C)
+            19: "72C",   # Juliana (Apt 72 - Bloco C)
+            20: "42B2",  # Renata
+        }
+
+        for uid, user_login in mapa_logins.items():
+            u = conn.query(Usuario).filter(Usuario.id_usuario == uid).first()
+            if u:
+                u.username = user_login
+                u.pin_hash = default_hash
+                u.role = "MORADOR"
+                u.ativo = True
+
+        # Configurar Sindico Admin com logins '000A' e 'admin'
+        for admin_login in ["000A", "admin"]:
+            admin_user = conn.query(Usuario).filter(Usuario.username == admin_login).first()
+            if not admin_user:
+                admin_user = Usuario(
+                    nome="Sindico Admin" if admin_login == "000A" else "Administrador Geral",
+                    email=f"{admin_login.lower()}@chargeops.com",
+                    telefone="(11) 99999-0000",
+                    tipo_vinculo="administrador",
+                    id_rfid=f"TAG_{admin_login}",
+                    id_app=f"APP_{admin_login}",
+                    username=admin_login,
+                    pin_hash=default_hash,
+                    role="ADMIN",
+                    ativo=True,
+                )
+                conn.add(admin_user)
+            else:
+                admin_user.pin_hash = default_hash
+                admin_user.role = "ADMIN"
+                admin_user.ativo = True
+
         conn.commit()
         
         from challenge_goodwe.infrastructure.orm import SessaoRecarga
@@ -61,3 +118,8 @@ def inicializar_banco(
         sessoes,
     )
     return destino
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    inicializar_banco()
+    print("Banco inicializado com sucesso!")
