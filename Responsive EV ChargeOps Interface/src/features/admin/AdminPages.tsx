@@ -867,6 +867,8 @@ export function AdminOperations() {
 export function AdminBilling() {
   const { charges, dispatch, notify, authToken, refreshData } = useAppState()
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
 
   const handleMarkPaid = async (chargeId: string) => {
     setMarkingPaidId(chargeId)
@@ -875,7 +877,7 @@ export function AdminBilling() {
         await markInvoicePaid(authToken, chargeId)
       }
       dispatch({ type: "mark-paid", id: chargeId })
-      notify("Pagamento confirmado e salvo com sucesso.", "success")
+      notify("Pagamento confirmado e salvo com sucesso no banco de dados.", "success")
       await refreshData()
     } catch (err: any) {
       notify(
@@ -887,59 +889,118 @@ export function AdminBilling() {
     }
   }
 
-  const total = charges.reduce((sum, item) => sum + item.amount, 0)
+  const totalEnergy = charges.reduce((sum, item) => sum + (Number(item.energy) || 0), 0)
+  const total = charges.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
   const paid = charges
     .filter((item) => item.status === "paid")
-    .reduce((sum, item) => sum + item.amount, 0)
+    .reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+  const adimplencia = total > 0 ? ((paid / total) * 100).toFixed(1) : "100"
+  const tarifaMedia = totalEnergy > 0 ? (total / totalEnergy).toFixed(2) : "0,92"
+
+  const filteredCharges = useMemo(() => {
+    return charges.filter((c) => {
+      const matchesSearch =
+        c.resident.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.unit.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesStatus =
+        statusFilter === "all" || c.status === statusFilter
+      return matchesSearch && matchesStatus
+    })
+  }, [charges, searchQuery, statusFilter])
+
+  const exportCsv = () => {
+    const headers = ["ID", "Morador", "Unidade", "Energia (kWh)", "Valor (R$)", "Status"]
+    const rows = filteredCharges.map((c) => [
+      c.id,
+      `"${c.resident}"`,
+      `"${c.unit}"`,
+      c.energy,
+      c.amount.toFixed(2),
+      c.status === "paid" ? "Pago" : c.status === "overdue" ? "Atrasado" : "Pendente"
+    ])
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n")
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", `faturas_rateio_2026-06.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    notify("Relatório CSV de faturas exportado com sucesso.")
+  }
 
   return (
     <div className="space-y-5">
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           accent="cyan"
-          change="+8,2%"
+          change={`${charges.length} unidades`}
           icon={Bolt}
           label="Energia rateada"
-          value="1.284 kWh"
+          value={`${totalEnergy.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh`}
         />
         <MetricCard
           accent="brand"
-          change="+11,6%"
+          change="Competência 2026-06"
           icon={WalletCards}
-          label="Faturamento"
-          value={`R$ ${total.toFixed(2).replace(".", ",")}`}
+          label="Faturamento total"
+          value={`R$ ${total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
         />
         <MetricCard
           accent="teal"
-          change="+6,4%"
+          change={`${charges.filter(c => c.status === "paid").length} faturas quitadas`}
           icon={CheckCircle2}
-          label="Recebido"
-          value={`R$ ${paid.toFixed(2).replace(".", ",")}`}
+          label="Total recebido"
+          value={`R$ ${paid.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
         />
         <MetricCard
           accent="orange"
-          change="-2,1%"
+          change={Number(adimplencia) >= 90 ? "Saudável" : "Atenção"}
           icon={CreditCard}
-          label="Adimplência"
-          value="94,2%"
-          trend="down"
+          label="Taxa de adimplência"
+          value={`${adimplencia}%`}
+          trend={Number(adimplencia) >= 90 ? "up" : "down"}
         />
       </section>
+
+      <Card className="p-4">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-subtle"
+              size={18}
+            />
+            <Input
+              aria-label="Buscar morador ou unidade"
+              className="pl-10"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por morador ou código da unidade..."
+              value={searchQuery}
+            />
+          </div>
+          <Select
+            aria-label="Filtrar por status"
+            onChange={(e) => setStatusFilter(e.target.value)}
+            value={statusFilter}
+          >
+            <option value="all">Todos os status</option>
+            <option value="pending">Pendentes</option>
+            <option value="paid">Pagos</option>
+            <option value="overdue">Atrasados</option>
+          </Select>
+        </div>
+      </Card>
+
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-4 border-b border-line p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <Heading level={2}>Cobranças de abril</Heading>
+            <Heading level={2}>Faturamento e Rateio — Junho/2026</Heading>
             <p className="mt-1 text-sm text-ink-subtle">
-              Rateio calculado a R$ 1,18 por kWh
+              Tarifa média calculada: R$ {tarifaMedia.replace(".", ",")} por kWh · {charges.length} faturas geradas
             </p>
           </div>
-          <Button
-            onClick={() =>
-              notify("Relatório preparado para demonstração.", "info")
-            }
-            variant="secondary"
-          >
-            <Download size={18} /> Exportar relatório
+          <Button onClick={exportCsv} variant="secondary">
+            <Download size={18} /> Exportar relatório CSV
           </Button>
         </div>
         <div className="hidden overflow-x-auto md:block">
@@ -955,99 +1016,121 @@ export function AdminBilling() {
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {charges.map((charge) => (
-                <tr key={charge.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-4 font-bold text-ink">
-                    {charge.resident}
-                  </td>
-                  <td className="px-5 py-4 text-ink-muted">{charge.unit}</td>
-                  <td className="px-5 py-4 text-ink-muted">
-                    {charge.energy} kWh
-                  </td>
-                  <td className="px-5 py-4 font-bold">
-                    R$ {charge.amount.toFixed(2).replace(".", ",")}
-                  </td>
-                  <td className="px-5 py-4">
-                    <StatusBadge
-                      tone={
-                        charge.status === "paid"
-                          ? "success"
-                          : charge.status === "overdue"
-                            ? "danger"
-                            : "warning"
-                      }
-                    >
-                      {charge.status === "paid"
-                        ? "Pago"
-                        : charge.status === "overdue"
-                          ? "Atrasado"
-                          : "Pendente"}
-                    </StatusBadge>
-                  </td>
-                  <td className="px-5 py-4 text-right">
-                    {charge.status !== "paid" && (
-                      <Button
-                        disabled={markingPaidId === charge.id}
-                        onClick={() => handleMarkPaid(charge.id)}
-                        size="sm"
-                        variant="secondary"
-                      >
-                        {markingPaidId === charge.id
-                          ? "Salvando..."
-                          : "Marcar pago"}
-                      </Button>
-                    )}
+              {filteredCharges.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-ink-subtle">
+                    Nenhuma fatura encontrada com os filtros selecionados.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredCharges.map((charge) => (
+                  <tr key={charge.id} className="hover:bg-surface-muted/60">
+                    <td className="px-5 py-4 font-bold text-ink">
+                      {charge.resident}
+                    </td>
+                    <td className="px-5 py-4 text-ink-muted">{charge.unit}</td>
+                    <td className="px-5 py-4 text-ink-muted">
+                      {charge.energy.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 })} kWh
+                    </td>
+                    <td className="px-5 py-4 font-bold">
+                      R$ {charge.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-5 py-4">
+                      <StatusBadge
+                        tone={
+                          charge.status === "paid"
+                            ? "success"
+                            : charge.status === "overdue"
+                              ? "danger"
+                              : "warning"
+                        }
+                      >
+                        {charge.status === "paid"
+                          ? "Pago"
+                          : charge.status === "overdue"
+                            ? "Atrasado"
+                            : "Pendente"}
+                      </StatusBadge>
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      {charge.status !== "paid" ? (
+                        <Button
+                          disabled={markingPaidId === charge.id}
+                          onClick={() => handleMarkPaid(charge.id)}
+                          size="sm"
+                          variant="secondary"
+                        >
+                          {markingPaidId === charge.id
+                            ? "Salvando..."
+                            : "Marcar pago"}
+                        </Button>
+                      ) : (
+                        <span className="text-xs font-semibold text-success">
+                          ✓ Quitado
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
         <div className="divide-y divide-line md:hidden">
-          {charges.map((charge) => (
-            <div key={charge.id} className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-bold">{charge.resident}</p>
-                  <p className="mt-1 text-xs text-ink-subtle">
-                    Unidade {charge.unit} · {charge.energy} kWh
-                  </p>
-                </div>
-                <StatusBadge
-                  tone={
-                    charge.status === "paid"
-                      ? "success"
-                      : charge.status === "overdue"
-                        ? "danger"
-                        : "warning"
-                  }
-                >
-                  {charge.status === "paid"
-                    ? "Pago"
-                    : charge.status === "overdue"
-                      ? "Atrasado"
-                      : "Pendente"}
-                </StatusBadge>
-              </div>
-              <div className="mt-4 flex items-center justify-between">
-                <p className="font-bold">
-                  R$ {charge.amount.toFixed(2).replace(".", ",")}
-                </p>
-                {charge.status !== "paid" && (
-                  <Button
-                    disabled={markingPaidId === charge.id}
-                    onClick={() => handleMarkPaid(charge.id)}
-                    size="sm"
-                    variant="secondary"
-                  >
-                    {markingPaidId === charge.id
-                      ? "Salvando..."
-                      : "Marcar pago"}
-                  </Button>
-                )}
-              </div>
+          {filteredCharges.length === 0 ? (
+            <div className="p-6 text-center text-ink-subtle">
+              Nenhuma fatura encontrada.
             </div>
-          ))}
+          ) : (
+            filteredCharges.map((charge) => (
+              <div key={charge.id} className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold">{charge.resident}</p>
+                    <p className="mt-1 text-xs text-ink-subtle">
+                      Unidade {charge.unit} · {charge.energy.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 })} kWh
+                    </p>
+                  </div>
+                  <StatusBadge
+                    tone={
+                      charge.status === "paid"
+                        ? "success"
+                        : charge.status === "overdue"
+                          ? "danger"
+                          : "warning"
+                    }
+                  >
+                    {charge.status === "paid"
+                      ? "Pago"
+                      : charge.status === "overdue"
+                        ? "Atrasado"
+                        : "Pendente"}
+                  </StatusBadge>
+                </div>
+                <div className="mt-4 flex items-center justify-between">
+                  <p className="font-bold">
+                    R$ {charge.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  {charge.status !== "paid" ? (
+                    <Button
+                      disabled={markingPaidId === charge.id}
+                      onClick={() => handleMarkPaid(charge.id)}
+                      size="sm"
+                      variant="secondary"
+                    >
+                      {markingPaidId === charge.id
+                        ? "Salvando..."
+                        : "Marcar pago"}
+                    </Button>
+                  ) : (
+                    <span className="text-xs font-semibold text-success">
+                      ✓ Quitado
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </Card>
     </div>

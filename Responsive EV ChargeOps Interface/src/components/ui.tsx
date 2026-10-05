@@ -139,15 +139,24 @@ export function Modal({
 }) {
   const titleId = useId()
   const closeRef = useRef<HTMLButtonElement>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+  const hasFocusedRef = useRef(false)
 
   useEffect(() => {
-    if (!open) return
-    closeRef.current?.focus()
+    if (!open) {
+      hasFocusedRef.current = false
+      return
+    }
+    if (!hasFocusedRef.current) {
+      hasFocusedRef.current = true
+      closeRef.current?.focus()
+    }
     const onKeyDown = (event: KeyboardEvent) =>
-      event.key === "Escape" && onClose()
+      event.key === "Escape" && onCloseRef.current()
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 

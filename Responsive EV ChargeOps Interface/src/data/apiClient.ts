@@ -22,10 +22,10 @@ export async function fetchAdminDashboard(token: string, periodo = "2026-06"): P
   
   const charges: Charge[] = (data.faturas || []).map((f: any) => ({
     id: `fat-${f.id_fatura}`,
-    resident: f.tipo === "morador" ? `Morador ${f.cd_unidade}` : f.cd_unidade,
+    resident: f.morador || (f.tipo === "morador" ? `Morador (${f.cd_unidade})` : f.cd_unidade),
     unit: f.cd_unidade,
-    energy: f.energia_total_kwh,
-    amount: f.valor_total_brl,
+    energy: Number(f.energia_total_kwh || 0),
+    amount: Number(f.valor_total_brl || 0),
     status: f.status_pgto === "pago" ? "paid" : f.status_pgto === "vencido" ? "overdue" : "pending"
   }));
 
@@ -71,15 +71,16 @@ export async function fetchResidentDashboard(token: string, periodo = "2026-06")
   }
   
   const data = await res.json();
+  const rawSessions = data.sessoes || data.sessões || [];
   
-  const sessions: ChargingSession[] = (data.sessões || []).map((s: any) => ({
+  const sessions: ChargingSession[] = rawSessions.map((s: any) => ({
     id: `EV-${s.id_sessao}`,
-    resident: s.motorista,
+    resident: s.motorista || s.usuario_nome || "Você",
     chargerId: `ch-${s.id_carregador}`,
-    date: s.dt_inicio,
-    duration: s.dt_fim ? Math.round((new Date(s.dt_fim).getTime() - new Date(s.dt_inicio).getTime()) / 60000) : 0,
-    energy: s.energia_kwh,
-    cost: (s.energia_kwh || 0) * 0.92, 
+    date: s.dt_inicio ? s.dt_inicio.split("T")[0] : "",
+    duration: s.dt_fim && s.dt_inicio ? Math.round((new Date(s.dt_fim).getTime() - new Date(s.dt_inicio).getTime()) / 60000) : 0,
+    energy: Number(s.energia_kwh || 0),
+    cost: Number(s.energia_kwh || 0) * 0.92, 
     status: s.status_final === "concluida" ? "completed" : "active"
   }));
 

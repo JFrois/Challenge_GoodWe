@@ -103,6 +103,17 @@ def inicializar_banco(
                 admin_user.ativo = True
 
         conn.commit()
+
+        # Fechar faturamento 2026-06 automaticamente com IA no seed principal (fora dos testes)
+        if conexao is None:
+            try:
+                from challenge_goodwe.core.faturamento import MotorDeFaturamento
+                from challenge_goodwe.domain.avaliacao import AvaliadorIsolationForest
+                motor = MotorDeFaturamento(conexao=conn, avaliador=AvaliadorIsolationForest())
+                motor.fechar_periodo("2026-06", refazer=True)
+                conn.commit()
+            except Exception as e:
+                logger.warning("Falha ao fechar faturamento no seed: %s", e)
         
         from challenge_goodwe.infrastructure.orm import SessaoRecarga
         tabelas = 13

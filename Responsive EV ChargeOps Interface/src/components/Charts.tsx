@@ -114,13 +114,18 @@ export function EnergyAreaChart({ showForecast = false }: { showForecast?: boole
   )
 }
 
-export function ResidentBarChart() {
+export function ResidentBarChart({
+  data,
+}: {
+  data?: Array<{ label: string; consumo: number; sessoes?: number; custo?: number }>
+} = {}) {
   const { chartData } = useAppState()
+  const displayData = data && data.length > 0 ? data : chartData
   
   return (
     <ResponsiveContainer height={220} width="100%">
       <BarChart
-        data={chartData}
+        data={displayData}
         margin={{ left: -28, right: 4, top: 12 }}
       >
         <CartesianGrid

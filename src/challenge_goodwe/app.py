@@ -38,6 +38,28 @@ def get_consultas():
 from challenge_goodwe.api.dependencies import require_admin, get_current_user
 from challenge_goodwe.infrastructure.orm import Usuario
 
+def df_to_records(df: pd.DataFrame) -> list:
+    if df is None or df.empty:
+        return []
+    clean_df = df.astype(object).where(pd.notnull(df), None)
+    return clean_df.to_dict(orient="records")
+
+
+def sanitize_json_val(val):
+    import math
+    if isinstance(val, dict):
+        return {k: sanitize_json_val(v) for k, v in val.items()}
+    elif isinstance(val, list):
+        return [sanitize_json_val(v) for v in val]
+    elif isinstance(val, float):
+        if math.isnan(val) or math.isinf(val):
+            return None
+        return val
+    elif pd.isna(val):
+        return None
+    return val
+
+
 @app.get("/api/admin/dashboard")
 def admin_dashboard(
     periodo: str = "2026-06", 
@@ -50,18 +72,18 @@ def admin_dashboard(
     carregadores_df = consultas.carregadores()
     sessoes_df = consultas.dataset_sessoes()
     
-    # Process pandas to dict
-    faturas = faturas_df.to_dict(orient="records") if not faturas_df.empty else []
-    consumo = consumo_df.to_dict(orient="records") if not consumo_df.empty else []
-    alertas = alertas_df.to_dict(orient="records") if not alertas_df.empty else []
-    carregadores = carregadores_df.to_dict(orient="records") if not carregadores_df.empty else []
-    sessoes = sessoes_df.to_dict(orient="records") if not sessoes_df.empty else []
+    # Process pandas to clean dict
+    faturas = df_to_records(faturas_df)
+    consumo = df_to_records(consumo_df)
+    alertas = df_to_records(alertas_df)
+    carregadores = df_to_records(carregadores_df)
+    sessoes = df_to_records(sessoes_df)
     
-    total_energy = round(sum(float(f.get("energia_total_kwh", 0)) for f in faturas), 2)
+    total_energy = round(sum(float(f.get("energia_total_kwh", 0) or 0) for f in faturas), 2)
     if total_energy == 0 and sessoes:
-        total_energy = round(sum(float(s.get("energia_kwh", 0)) for s in sessoes), 2)
+        total_energy = round(sum(float(s.get("energia_kwh", 0) or 0) for s in sessoes), 2)
 
-    total_revenue = round(sum(float(f.get("valor_total_brl", 0)) for f in faturas), 2)
+    total_revenue = round(sum(float(f.get("valor_total_brl", 0) or 0) for f in faturas), 2)
     if total_revenue == 0 and total_energy > 0:
         total_revenue = round(total_energy * 0.92, 2)
 
@@ -96,7 +118,8 @@ def admin_dashboard(
     except Exception as e:
         logger.warning("Falha ao calcular previsao de demanda: %s", e)
 
-    return {
+    from fastapi.encoders import jsonable_encoder
+    result = {
         "metrics": {
             "totalEnergy": total_energy,
             "totalRevenue": total_revenue,
@@ -110,6 +133,7 @@ def admin_dashboard(
         "sessoes": sessoes,
         "previsao": previsao_data,
     }
+    return jsonable_encoder(sanitize_json_val(result))
 
 
 class StatusCarregadorRequest(BaseModel):
@@ -199,15 +223,16 @@ def resident_dashboard(
     
     try:
         extrato = consultas.extrato_morador(unidade_id, periodo)
-        sessoes = extrato["sessoes"].to_dict(orient="records") if not extrato["sessoes"].empty else []
-        fatura = extrato["fatura"].to_dict(orient="records")[0] if not extrato["fatura"].empty else None
+        sessoes = df_to_records(extrato["sessoes"])
+        faturas_list = df_to_records(extrato["fatura"])
+        fatura = faturas_list[0] if faturas_list else None
         
         carregadores_df = consultas.carregadores()
-        carregadores = carregadores_df.to_dict(orient="records") if not carregadores_df.empty else []
+        carregadores = df_to_records(carregadores_df)
 
         # Calcular métricas dinâmicas do residente
-        total_kwh = float(fatura["energia_total_kwh"]) if fatura else sum(float(s.get("energia_kwh", 0)) for s in sessoes)
-        total_cost = float(fatura["valor_total_brl"]) if fatura else round(total_kwh * 0.92, 2)
+        total_kwh = float(fatura["energia_total_kwh"]) if fatura and fatura.get("energia_total_kwh") is not None else sum(float(s.get("energia_kwh", 0) or 0) for s in sessoes)
+        total_cost = float(fatura["valor_total_brl"]) if fatura and fatura.get("valor_total_brl") is not None else round(total_kwh * 0.92, 2)
 
         durations = []
         for s in sessoes:
@@ -220,7 +245,8 @@ def resident_dashboard(
                     pass
         avg_duration_min = round(sum(durations) / len(durations)) if durations else 0
         
-        return {
+        from fastapi.encoders import jsonable_encoder
+        res = {
             "usuario": {
                 "id_usuario": current_user.id_usuario,
                 "nome": current_user.nome,
@@ -235,6 +261,7 @@ def resident_dashboard(
             "sessoes": sessoes,
             "carregadores": carregadores
         }
+        return jsonable_encoder(sanitize_json_val(res))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -335,6 +362,12 @@ def get_reservations(
 def create_reservation(req: CriarReservaRequest, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
     from challenge_goodwe.infrastructure.orm import ReservaCarregador
     
+    # Validar se o horário já passou
+    agora = datetime.now()
+    dt_inicio = req.dt_inicio_agendado.replace(tzinfo=None) if req.dt_inicio_agendado.tzinfo else req.dt_inicio_agendado
+    if dt_inicio < agora:
+        raise HTTPException(status_code=400, detail="Não é permitido agendar reservas para horários passados")
+
     # Valida conflito de horario simples
     conflito = db.query(ReservaCarregador).filter(
         ReservaCarregador.id_carregador == req.id_carregador,
