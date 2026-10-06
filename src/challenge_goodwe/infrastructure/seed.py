@@ -28,14 +28,26 @@ def inicializar_banco(
 
     conn = conexao or conectar()
     try:
-        # Limpa e recria o banco antes de popular
-        from challenge_goodwe.infrastructure.orm import Base
-        Base.metadata.create_all(conn.bind)
+        from challenge_goodwe.infrastructure.orm import Base, Usuario, SessaoRecarga
+        from challenge_goodwe.auth.security import get_pin_hash
+
+        # Garante que as tabelas existem
+        Base.metadata.create_all(bind=conn.bind)
+
+        # Limpa o banco antes de popular para garantir idempotencia
+        tabelas = [
+            "Auditoria", "Alerta", "Leitura_Medicao", "Sessao_Recarga",
+            "Reserva_Carregador", "Fatura", "Tarifa", "Carregador",
+            "Unidade_Usuario", "Usuario", "Unidade", "Configuracao"
+        ]
         if conn.bind.dialect.name == "postgresql":
-            conn.execute(text('TRUNCATE "Sessao_Recarga", "Fatura", "Leitura_Medicao", "Alerta", "Reserva_Carregador", "Tarifa", "Carregador", "Unidade_Usuario", "Unidade", "Usuario" CASCADE;'))
+            conn.execute(text('TRUNCATE "Sessao_Recarga", "Fatura", "Leitura_Medicao", "Alerta", "Reserva_Carregador", "Tarifa", "Carregador", "Unidade_Usuario", "Unidade", "Usuario", "Auditoria", "Configuracao" CASCADE;'))
         else:
-            Base.metadata.drop_all(conn.bind)
-            Base.metadata.create_all(conn.bind)
+            for t in tabelas:
+                try:
+                    conn.execute(text(f'DELETE FROM "{t}";'))
+                except Exception:
+                    pass
             
         # Remove todos os comentarios para evitar split errado em ponto-e-virgula dentro de comentario
         script_sem_comentarios = re.sub(r'--.*', '', script)
@@ -49,38 +61,31 @@ def inicializar_banco(
             if stmt.upper().startswith("INSERT INTO"):
                 clean_stmt = re.sub(r'INSERT INTO (\w+)', r'INSERT INTO "\1"', stmt, flags=re.IGNORECASE)
                 conn.execute(text(clean_stmt))
-                
-        conn.commit()
 
-        # Configurar credenciais de acesso padrao (PIN 123456)
-        from challenge_goodwe.infrastructure.orm import Usuario
-        from challenge_goodwe.auth.security import get_pin_hash
-
-        default_hash = get_pin_hash("123456")
-
-        mapa_logins = {
-            10: "42B",   # Juan (Apt 42 - Bloco B)
-            11: "43B",   # Flavia (Apt 43 - Bloco B)
-            12: "01T",   # Pedro (Loja 01 - Terreo)
-            13: "55A",   # Mariana (Apt 55 - Bloco A)
-            14: "11B",   # Carlos (Apt 11 - Bloco B)
-            15: "21B",   # Ana Beatriz (Apt 21 - Bloco B)
-            16: "31A",   # Roberto (Apt 31 - Bloco A)
-            17: "32A",   # Camila (Apt 32 - Bloco A)
-            18: "71C",   # Fernando (Apt 71 - Bloco C)
-            19: "72C",   # Juliana (Apt 72 - Bloco C)
-            20: "42B2",  # Renata
+        # Configura credenciais padrao de autenticacao para desenvolvimento e testes
+        user_unidade_map = {
+            10: "42B",  # Juan de Lucas Frois (Apt 42 - Bloco B)
+            11: "43B",  # Flavia R. Pennachin (Apt 43 - Bloco B)
+            12: "01T",  # Pedro Valente Toledo (Loja 01 - Terreo)
+            13: "55A",  # Mariana Silva (Apt 55 - Bloco A)
+            14: "11B",  # Carlos Souza (Apt 11 - Bloco B)
+            15: "21B",  # Ana Beatriz Costa (Apt 21 - Bloco B)
+            16: "31A",  # Roberto Almeida (Apt 31 - Bloco A)
+            17: "32A",  # Camila Rocha (Apt 32 - Bloco A)
+            18: "71C",  # Fernando Oliveira (Apt 71 - Bloco C)
+            19: "72C",  # Juliana Mendes (Apt 72 - Bloco C)
+            20: "42B2", # Renata Frois (2o veiculo Apt 42 - Bloco B)
         }
+        padrao_pin_hash = get_pin_hash("123456")
 
-        for uid, user_login in mapa_logins.items():
-            u = conn.query(Usuario).filter(Usuario.id_usuario == uid).first()
-            if u:
-                u.username = user_login
-                u.pin_hash = default_hash
-                u.role = "MORADOR"
-                u.ativo = True
+        for u in conn.query(Usuario).all():
+            if not u.username and u.id_usuario in user_unidade_map:
+                u.username = user_unidade_map[u.id_usuario]
+            if not u.pin_hash:
+                u.pin_hash = padrao_pin_hash
+            u.ativo = True
 
-        # Configurar Sindico Admin com logins '000A' e 'admin'
+        # Configurar contas administrativas com logins '000A' e 'admin'
         for admin_login in ["000A", "admin"]:
             admin_user = conn.query(Usuario).filter(Usuario.username == admin_login).first()
             if not admin_user:
@@ -92,13 +97,13 @@ def inicializar_banco(
                     id_rfid=f"TAG_{admin_login}",
                     id_app=f"APP_{admin_login}",
                     username=admin_login,
-                    pin_hash=default_hash,
+                    pin_hash=padrao_pin_hash,
                     role="ADMIN",
                     ativo=True,
                 )
                 conn.add(admin_user)
             else:
-                admin_user.pin_hash = default_hash
+                admin_user.pin_hash = padrao_pin_hash
                 admin_user.role = "ADMIN"
                 admin_user.ativo = True
 
@@ -115,8 +120,7 @@ def inicializar_banco(
             except Exception as e:
                 logger.warning("Falha ao fechar faturamento no seed: %s", e)
         
-        from challenge_goodwe.infrastructure.orm import SessaoRecarga
-        tabelas = 13
+        tabelas_count = 13
         sessoes = conn.query(SessaoRecarga).count()
     finally:
         if conexao is None:
@@ -125,7 +129,7 @@ def inicializar_banco(
     logger.info(
         "Banco inicializado em %s | %d tabelas | %d sessoes carregadas",
         destino,
-        tabelas,
+        tabelas_count,
         sessoes,
     )
     return destino

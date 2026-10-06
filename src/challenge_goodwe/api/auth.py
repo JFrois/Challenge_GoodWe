@@ -17,7 +17,7 @@ MAX_ATTEMPTS = 5
 LOCKOUT_MINUTES = 5
 
 class LoginRequest(BaseModel):
-    username: str = Field(..., min_length=2, max_length=50)
+    username: str = Field(..., pattern=r"^[A-Za-z0-9_]{2,50}$", description="Identificador do usuário/unidade (ex: 42B ou admin)")
     pin: str = Field(..., pattern=r"^\d{6}$")
 
 class TokenResponse(BaseModel):
