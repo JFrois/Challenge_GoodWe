@@ -12,7 +12,9 @@ export async function fetchAdminDashboard(token: string, periodo = "2026-06"): P
   charges: Charge[],
   chargers: Charger[],
   chartData: any[],
-  metrics: any
+  metrics: any,
+  previsao?: any,
+  alertas?: any[]
 }> {
   const res = await fetch(`${API_URL}/admin/dashboard?periodo=${periodo}`, { headers: getHeaders(token) });
   if (!res.ok) throw new Error(`Erro ao buscar dashboard do admin: ${res.status}`);
@@ -20,10 +22,10 @@ export async function fetchAdminDashboard(token: string, periodo = "2026-06"): P
   
   const charges: Charge[] = (data.faturas || []).map((f: any) => ({
     id: `fat-${f.id_fatura}`,
-    resident: f.tipo === "morador" ? `Morador ${f.cd_unidade}` : f.cd_unidade,
+    resident: f.morador || (f.tipo === "morador" ? `Morador (${f.cd_unidade})` : f.cd_unidade),
     unit: f.cd_unidade,
-    energy: f.energia_total_kwh,
-    amount: f.valor_total_brl,
+    energy: Number(f.energia_total_kwh || 0),
+    amount: Number(f.valor_total_brl || 0),
     status: f.status_pgto === "pago" ? "paid" : f.status_pgto === "vencido" ? "overdue" : "pending"
   }));
 
@@ -31,9 +33,10 @@ export async function fetchAdminDashboard(token: string, periodo = "2026-06"): P
     id: `ch-${c.id_carregador}`,
     name: c.fabricante_modelo || c.nome_carregador || `Carregador ${c.id_carregador}`,
     location: c.localizacao || "Indisponível",
-    status: c.estado_operacional === "online" ? "available" : c.estado_operacional === "in_use" ? "in-use" : "offline",
-    power: c.potencia_nominal_kw || c.potencia_kw || 0,
-    nextAvailable: "Agora"
+    connector: c.tipo_conector || "Tipo 2",
+    status: c.estado_operacional === "online" ? "available" : c.estado_operacional === "in_use" ? "charging" : "offline",
+    power: Number(c.potencia_nominal_kw || c.potencia_kw || 7.4),
+    nextAvailable: c.estado_operacional === "online" ? "Disponível" : "Em manutenção"
   }));
 
   const chartData = (data.consumo || []).map((c: any) => ({
@@ -42,7 +45,7 @@ export async function fetchAdminDashboard(token: string, periodo = "2026-06"): P
     demanda: c.sessões * 7 
   }));
 
-  return { charges, chargers, chartData, metrics: data.metrics };
+  return { charges, chargers, chartData, metrics: data.metrics, previsao: data.previsao, alertas: data.alertas };
 }
 
 export async function fetchResidentDashboard(token: string, periodo = "2026-06"): Promise<{
@@ -68,15 +71,16 @@ export async function fetchResidentDashboard(token: string, periodo = "2026-06")
   }
   
   const data = await res.json();
+  const rawSessions = data.sessoes || data.sessões || [];
   
-  const sessions: ChargingSession[] = (data.sessões || []).map((s: any) => ({
+  const sessions: ChargingSession[] = rawSessions.map((s: any) => ({
     id: `EV-${s.id_sessao}`,
-    resident: s.motorista,
+    resident: s.motorista || s.usuario_nome || "Você",
     chargerId: `ch-${s.id_carregador}`,
-    date: s.dt_inicio,
-    duration: s.dt_fim ? Math.round((new Date(s.dt_fim).getTime() - new Date(s.dt_inicio).getTime()) / 60000) : 0,
-    energy: s.energia_kwh,
-    cost: (s.energia_kwh || 0) * 0.92, 
+    date: s.dt_inicio ? s.dt_inicio.split("T")[0] : "",
+    duration: s.dt_fim && s.dt_inicio ? Math.round((new Date(s.dt_fim).getTime() - new Date(s.dt_inicio).getTime()) / 60000) : 0,
+    energy: Number(s.energia_kwh || 0),
+    cost: Number(s.energia_kwh || 0) * 0.92, 
     status: s.status_final === "concluida" ? "completed" : "active"
   }));
 
@@ -96,8 +100,10 @@ export async function fetchResidentDashboard(token: string, periodo = "2026-06")
     id: `ch-${c.id_carregador}`,
     name: c.fabricante_modelo || c.nome_carregador || `Carregador ${c.id_carregador}`,
     location: c.localizacao || "Indisponível",
-    status: c.estado_operacional === "online" ? "available" : c.estado_operacional === "in_use" ? "in-use" : "offline",
-    power: c.potencia_nominal_kw || c.potencia_kw || 0
+    connector: c.tipo_conector || "Tipo 2",
+    status: c.estado_operacional === "online" ? "available" : c.estado_operacional === "in_use" ? "charging" : "offline",
+    power: Number(c.potencia_nominal_kw || c.potencia_kw || 7.4),
+    nextAvailable: c.estado_operacional === "online" ? "Disponível" : "Em manutenção"
   }));
 
   return { sessions, charge, chargers, metrics: data.metrics, usuario: data.usuario };

@@ -17,7 +17,7 @@ MAX_ATTEMPTS = 5
 LOCKOUT_MINUTES = 5
 
 class LoginRequest(BaseModel):
-    username: str = Field(..., pattern=r"^[A-Za-z0-9_]{2,20}$", description="Identificador do usuário/unidade (ex: 42B ou admin)")
+    username: str = Field(..., pattern=r"^[A-Za-z0-9_]{2,50}$", description="Identificador do usuário/unidade (ex: 42B ou admin)")
     pin: str = Field(..., pattern=r"^\d{6}$")
 
 class TokenResponse(BaseModel):
@@ -29,27 +29,21 @@ class TokenResponse(BaseModel):
 
 @router.post("/login", response_model=TokenResponse)
 def login(req: LoginRequest, db: Session = Depends(get_db)):
+    from sqlalchemy import func
     now = datetime.now()
     
     # Check rate limit
-    if req.username in failed_attempts:
-        attempts, last_time = failed_attempts[req.username]
+    clean_username = req.username.strip()
+    if clean_username in failed_attempts:
+        attempts, last_time = failed_attempts[clean_username]
         if attempts >= MAX_ATTEMPTS:
             if now < last_time + timedelta(minutes=LOCKOUT_MINUTES):
                 raise HTTPException(status_code=429, detail="Muitas tentativas falhas. Tente novamente mais tarde.")
             else:
                 # Reset after lockout
-                failed_attempts.pop(req.username, None)
+                failed_attempts.pop(clean_username, None)
                 
-    user = (
-        db.query(Usuario)
-        .filter(
-            (Usuario.username == req.username)
-            | (Usuario.username == req.username.upper())
-            | (Usuario.username == req.username.lower())
-        )
-        .first()
-    )
+    user = db.query(Usuario).filter(func.lower(Usuario.username) == func.lower(clean_username)).first()
     
     if not user or not user.pin_hash or not verify_pin(req.pin, user.pin_hash):
         # Register fail

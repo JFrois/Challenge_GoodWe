@@ -145,7 +145,7 @@ class SessaoRepository:
             ts = l["timestamp"]
             if isinstance(ts, str):
                 try:
-                    ts = datetime.fromisoformat(ts)
+                    ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
                 except ValueError:
                     ts = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
             objetos.append(

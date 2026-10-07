@@ -31,7 +31,7 @@ def inicializar_banco(
         from challenge_goodwe.infrastructure.orm import Base, Usuario, SessaoRecarga
         from challenge_goodwe.auth.security import get_pin_hash
 
-        # Garante que as tabelas existem (especialmente em SQLite ou bancos novos)
+        # Garante que as tabelas existem
         Base.metadata.create_all(bind=conn.bind)
 
         # Limpa o banco antes de popular para garantir idempotencia
@@ -85,22 +85,40 @@ def inicializar_banco(
                 u.pin_hash = padrao_pin_hash
             u.ativo = True
 
-        # Cria usuario administrador se nao existir
-        admin = conn.query(Usuario).filter(Usuario.username == "admin").first()
-        if not admin:
-            admin = Usuario(
-                nome="Administrador",
-                email="admin@chargeops.com",
-                username="admin",
-                pin_hash=padrao_pin_hash,
-                role="ADMIN",
-                ativo=True,
-                tipo_vinculo="gestor",
-                id_rfid="TAG_ADMIN",
-            )
-            conn.add(admin)
-                
+        # Configurar contas administrativas com logins '000A' e 'admin'
+        for admin_login in ["000A", "admin"]:
+            admin_user = conn.query(Usuario).filter(Usuario.username == admin_login).first()
+            if not admin_user:
+                admin_user = Usuario(
+                    nome="Sindico Admin" if admin_login == "000A" else "Administrador Geral",
+                    email=f"{admin_login.lower()}@chargeops.com",
+                    telefone="(11) 99999-0000",
+                    tipo_vinculo="administrador",
+                    id_rfid=f"TAG_{admin_login}",
+                    id_app=f"APP_{admin_login}",
+                    username=admin_login,
+                    pin_hash=padrao_pin_hash,
+                    role="ADMIN",
+                    ativo=True,
+                )
+                conn.add(admin_user)
+            else:
+                admin_user.pin_hash = padrao_pin_hash
+                admin_user.role = "ADMIN"
+                admin_user.ativo = True
+
         conn.commit()
+
+        # Fechar faturamento 2026-06 automaticamente com IA no seed principal (fora dos testes)
+        if conexao is None:
+            try:
+                from challenge_goodwe.core.faturamento import MotorDeFaturamento
+                from challenge_goodwe.domain.avaliacao import AvaliadorIsolationForest
+                motor = MotorDeFaturamento(conexao=conn, avaliador=AvaliadorIsolationForest())
+                motor.fechar_periodo("2026-06", refazer=True)
+                conn.commit()
+            except Exception as e:
+                logger.warning("Falha ao fechar faturamento no seed: %s", e)
         
         tabelas_count = 13
         sessoes = conn.query(SessaoRecarga).count()
@@ -115,3 +133,8 @@ def inicializar_banco(
         sessoes,
     )
     return destino
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    inicializar_banco()
+    print("Banco inicializado com sucesso!")

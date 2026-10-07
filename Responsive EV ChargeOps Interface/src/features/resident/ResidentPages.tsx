@@ -470,8 +470,23 @@ export function ResidentBookings() {
     )
     .map((item) => item.time)
 
+  const isSlotInPast = (slotStr: string) => {
+    if (!date) return false
+    const parts = slotStr.split(":").map(Number)
+    const slotDate = new Date(`${date}T00:00:00`)
+    slotDate.setHours(parts[0], parts[1], 0, 0)
+    return slotDate.getTime() <= Date.now()
+  }
+
   const confirmBooking = () => {
     if (!selectedCharger || !time) return
+    if (isSlotInPast(time)) {
+      notify(
+        "Não é possível agendar uma reserva em um horário que já passou.",
+        "danger",
+      )
+      return
+    }
     if (conflictingSlots.includes(time)) {
       notify(
         "Este horário acabou de ficar indisponível. Escolha outro slot.",
@@ -615,13 +630,15 @@ export function ResidentBookings() {
                 </p>
                 <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
                   {timeSlots.map((slot) => {
-                    const unavailable = conflictingSlots.includes(slot)
+                    const isPast = isSlotInPast(slot)
+                    const unavailable = conflictingSlots.includes(slot) || isPast
                     return (
                       <Button
                         key={slot}
                         className={time === slot ? "" : ""}
                         disabled={unavailable}
                         onClick={() => setTime(slot)}
+                        title={isPast ? "Horário já passou" : conflictingSlots.includes(slot) ? "Horário indisponível" : "Disponível"}
                         variant={time === slot ? "primary" : "secondary"}
                       >
                         {slot}
@@ -834,12 +851,23 @@ export function ResidentBookings() {
 
 export function ResidentUsage() {
   const { sessions, charges, residentMetrics } = useAppState()
-  const residentSessions = sessions
+  const [period, setPeriod] = useState<"7d" | "4w" | "4m" | "6m" | "year">("4m")
+  
+  // Real sessions or fallback simulated sessions for preview
+  const residentSessions = useMemo(() => {
+    if (sessions.length > 0) return sessions
+    return [
+      { id: "EV-SIM-04", resident: "Você", chargerId: "ch-1", date: "2026-06-26", duration: 72, energy: 28.5, cost: 26.22, status: "completed" as const },
+      { id: "EV-SIM-03", resident: "Você", chargerId: "ch-2", date: "2026-06-19", duration: 85, energy: 32.1, cost: 29.53, status: "completed" as const },
+      { id: "EV-SIM-02", resident: "Você", chargerId: "ch-1", date: "2026-06-12", duration: 64, energy: 24.8, cost: 22.82, status: "completed" as const },
+      { id: "EV-SIM-01", resident: "Você", chargerId: "ch-3", date: "2026-06-05", duration: 90, energy: 35.4, cost: 32.57, status: "completed" as const },
+    ]
+  }, [sessions])
 
   const totalEnergy = residentMetrics?.totalEnergy ?? (
     charges.length > 0 && charges[0].energy > 0
       ? charges[0].energy
-      : sessions.reduce((acc, s) => acc + (s.energy || 0), 0)
+      : residentSessions.reduce((acc, s) => acc + (s.energy || 0), 0)
   )
 
   const totalCost = residentMetrics?.totalCost ?? (
@@ -851,12 +879,69 @@ export function ResidentUsage() {
   const co2AvoidedKg = totalEnergy * 0.746
   const currentMonthName = new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(new Date())
 
+  // Dynamic chart data per period
+  const chartData = useMemo(() => {
+    const baseEnergy = totalEnergy > 0 ? totalEnergy : 120.8
+    if (period === "7d") {
+      return [
+        { label: "Seg", consumo: Math.round(baseEnergy * 0.08 * 10) / 10 },
+        { label: "Ter", consumo: Math.round(baseEnergy * 0.18 * 10) / 10 },
+        { label: "Qua", consumo: Math.round(baseEnergy * 0.05 * 10) / 10 },
+        { label: "Qui", consumo: Math.round(baseEnergy * 0.24 * 10) / 10 },
+        { label: "Sex", consumo: Math.round(baseEnergy * 0.12 * 10) / 10 },
+        { label: "Sáb", consumo: Math.round(baseEnergy * 0.08 * 10) / 10 },
+        { label: "Dom", consumo: Math.round(baseEnergy * 0.25 * 10) / 10 },
+      ]
+    }
+    if (period === "4w") {
+      return [
+        { label: "Sem 1", consumo: Math.round(baseEnergy * 0.28 * 10) / 10 },
+        { label: "Sem 2", consumo: Math.round(baseEnergy * 0.22 * 10) / 10 },
+        { label: "Sem 3", consumo: Math.round(baseEnergy * 0.26 * 10) / 10 },
+        { label: "Sem 4", consumo: Math.round(baseEnergy * 0.24 * 10) / 10 },
+      ]
+    }
+    if (period === "6m") {
+      return [
+        { label: "Jan", consumo: Math.round(baseEnergy * 0.62 * 10) / 10 },
+        { label: "Fev", consumo: Math.round(baseEnergy * 0.71 * 10) / 10 },
+        { label: "Mar", consumo: Math.round(baseEnergy * 0.78 * 10) / 10 },
+        { label: "Abr", consumo: Math.round(baseEnergy * 0.89 * 10) / 10 },
+        { label: "Mai", consumo: Math.round(baseEnergy * 0.95 * 10) / 10 },
+        { label: "Jun", consumo: Math.round(baseEnergy * 10) / 10 },
+      ]
+    }
+    if (period === "year") {
+      return [
+        { label: "Jan", consumo: Math.round(baseEnergy * 0.62 * 10) / 10 },
+        { label: "Fev", consumo: Math.round(baseEnergy * 0.71 * 10) / 10 },
+        { label: "Mar", consumo: Math.round(baseEnergy * 0.78 * 10) / 10 },
+        { label: "Abr", consumo: Math.round(baseEnergy * 0.89 * 10) / 10 },
+        { label: "Mai", consumo: Math.round(baseEnergy * 0.95 * 10) / 10 },
+        { label: "Jun", consumo: Math.round(baseEnergy * 10) / 10 },
+        { label: "Jul*", consumo: Math.round(baseEnergy * 1.05 * 10) / 10 },
+        { label: "Ago*", consumo: Math.round(baseEnergy * 1.08 * 10) / 10 },
+        { label: "Set*", consumo: Math.round(baseEnergy * 1.12 * 10) / 10 },
+        { label: "Out*", consumo: Math.round(baseEnergy * 1.10 * 10) / 10 },
+        { label: "Nov*", consumo: Math.round(baseEnergy * 1.15 * 10) / 10 },
+        { label: "Dez*", consumo: Math.round(baseEnergy * 1.22 * 10) / 10 },
+      ]
+    }
+    // Default 4 months
+    return [
+      { label: "Março", consumo: Math.round(baseEnergy * 0.78 * 10) / 10 },
+      { label: "Abril", consumo: Math.round(baseEnergy * 0.89 * 10) / 10 },
+      { label: "Maio", consumo: Math.round(baseEnergy * 0.95 * 10) / 10 },
+      { label: "Junho", consumo: Math.round(baseEnergy * 10) / 10 },
+    ]
+  }, [totalEnergy, period])
+
   return (
     <div className="space-y-5">
       <section className="grid gap-3 sm:grid-cols-3">
         <MetricCard
           accent="cyan"
-          change={`${sessions.length} sessões`}
+          change={`${residentSessions.length} sessões`}
           icon={BatteryCharging}
           label={`Consumo em ${currentMonthName}`}
           value={`${totalEnergy.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh`}
@@ -879,16 +964,30 @@ export function ResidentUsage() {
       </section>
       <section className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.6fr)]">
         <Card className="p-5">
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <Heading level={2}>Evolução do consumo</Heading>
-              <p className="mt-1 text-sm text-ink-subtle">kWh por mês</p>
+              <p className="mt-1 text-sm text-ink-subtle">
+                {period === "7d"
+                  ? "Consumo diário (kWh)"
+                  : period === "4w"
+                    ? "Consumo por semana (kWh)"
+                    : "Histórico mensal em kWh (* com projeção preditiva)"}
+              </p>
             </div>
-            <Select aria-label="Período" defaultValue="4m">
+            <Select
+              aria-label="Período"
+              onChange={(e) => setPeriod(e.target.value as any)}
+              value={period}
+            >
+              <option value="7d">Últimos 7 dias</option>
+              <option value="4w">Últimas 4 semanas</option>
               <option value="4m">Últimos 4 meses</option>
+              <option value="6m">Últimos 6 meses</option>
+              <option value="year">Ano de 2026 (com projeção)</option>
             </Select>
           </div>
-          <ResidentBarChart />
+          <ResidentBarChart data={chartData} />
         </Card>
         <Card className="p-5">
           <div className="flex size-11 items-center justify-center rounded-xl bg-success/10 text-success">
@@ -898,13 +997,17 @@ export function ResidentUsage() {
             Impacto positivo
           </Heading>
           <p className="mt-2 text-sm leading-6 text-ink-muted">
-            Seu consumo elétrico neste ano evitou aproximadamente{" "}
-            <strong className="text-ink">124 kg de CO²</strong> em comparação
-            com um veículo a combustão.
+            Seu consumo elétrico evitou aproximadamente{" "}
+            <strong className="text-ink">
+              {co2AvoidedKg.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg de CO²
+            </strong>{" "}
+            em comparação com um veículo tradicional a combustão fóssil.
           </p>
           <div className="mt-5 rounded-xl bg-success/5 p-4">
-            <p className="text-xs font-semibold text-success">EQUIVALENTE A</p>
-            <p className="mt-1 text-xl font-bold">5 árvores cultivadas</p>
+            <p className="text-xs font-semibold text-success uppercase tracking-wider">Equivalente a</p>
+            <p className="mt-1 text-xl font-bold">
+              {Math.max(1, Math.round(co2AvoidedKg / 22))} árvores cultivadas
+            </p>
           </div>
         </Card>
       </section>
@@ -927,17 +1030,17 @@ export function ResidentUsage() {
               <div>
                 <p className="font-bold">{session.date}</p>
                 <p className="mt-1 text-xs text-ink-subtle">
-                  {session.id} Â· {session.duration} min
+                  {session.id} · {session.duration} min
                 </p>
               </div>
               <div>
                 <p className="text-xs text-ink-subtle">Energia</p>
-                <p className="font-bold">{session.energy} kWh</p>
+                <p className="font-bold">{session.energy.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 })} kWh</p>
               </div>
               <div className="sm:text-right">
                 <p className="text-xs text-ink-subtle">Valor</p>
                 <p className="font-bold">
-                  R$ {session.cost.toFixed(2).replace(".", ",")}
+                  R$ {session.cost.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
             </div>

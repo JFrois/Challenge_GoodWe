@@ -87,7 +87,25 @@ class ConsultasEVChargeOps:
         return {"sessoes": sessoes, "fatura": _converter_centavos(fatura)}
 
     def painel_sindico(self, periodo: str) -> pd.DataFrame:
+        from challenge_goodwe.infrastructure.orm import Usuario, unidade_usuario
         query = self._conn.query(
+            Fatura.id_fatura,
+            Unidade.cd_unidade,
+            Unidade.tipo,
+            func.coalesce(func.min(Usuario.nome), Unidade.cd_unidade).label("morador"),
+            Fatura.periodo,
+            Fatura.energia_total_kwh,
+            Fatura.qtd_sessoes,
+            Fatura.politica_rateio,
+            Fatura.valor_variavel_centavos,
+            Fatura.valor_taxa_centavos,
+            Fatura.valor_total_centavos,
+            Fatura.status_pgto
+        ).join(Unidade, Unidade.id_unidade == Fatura.id_unidade)\
+         .outerjoin(unidade_usuario, unidade_usuario.c.id_unidade == Unidade.id_unidade)\
+         .outerjoin(Usuario, Usuario.id_usuario == unidade_usuario.c.id_usuario)\
+         .filter(Fatura.periodo == periodo)\
+         .group_by(
             Fatura.id_fatura,
             Unidade.cd_unidade,
             Unidade.tipo,
@@ -99,8 +117,7 @@ class ConsultasEVChargeOps:
             Fatura.valor_taxa_centavos,
             Fatura.valor_total_centavos,
             Fatura.status_pgto
-        ).join(Unidade, Unidade.id_unidade == Fatura.id_unidade)\
-         .filter(Fatura.periodo == periodo)\
+         )\
          .order_by(Fatura.valor_total_centavos.desc())
          
         df = pd.read_sql(query.statement, self._conn.bind)
