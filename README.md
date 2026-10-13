@@ -298,28 +298,28 @@ Use uma das contas fictícias na tela de login. O PIN é comum a todas as contas
 
 ## 7.1 Perfil Administrador 
 
-   ### Página Inicial
-   ![sindico_iniciall](docs\evidencias_funcionamento\sindico_visao_geral.png)
+- ### Página Inicial
+![sindico_iniciall](docs/evidencias_funcionamento/sindico_visao_geral.png)
 
-   ### Gestão Financeira
-   ![sindico_financeiro](docs\evidencias_funcionamento\sindico_financeiro.png)
+- ### Gestão Financeira
+![sindico_financeiro](docs/evidencias_funcionamento/sindico_financeiro.png)
 
-   ### Gestão de Moradores
-   ![sindico_cadastros](docs\evidencias_funcionamento\sindico_cadastros.png)
+- ### Gestão de Moradores
+![sindico_cadastros](docs/evidencias_funcionamento/sindico_cadastros.png)
 
-   ### Adicionar Morador 
-   ![sindico_adicionar_morador](docs\evidencias_funcionamento\sindico_adicionar_morador.png)
+- ### Adicionar Morador 
+![sindico_adicionar_morador](docs/evidencias_funcionamento/sindico_adicionar_morador.png)
 
 ## 7.2 Perfil Morador
 
-   ### Página Inicial
-   ![morador_inicio](docs\evidencias_funcionamento\morador_inicio.png)
+- ### Página Inicial
+![morador_inicio](docs/evidencias_funcionamento/morador_inicio.png)
 
-   ### Solicitando Reserva
-   ![morador_reserva](docs\evidencias_funcionamento\morador_reserva.png)
+- ### Solicitando Reserva
+![morador_reserva](docs/evidencias_funcionamento/morador_reserva.png)
 
-   ### Histórico de Consumo
-   ![morador_consumo](docs\evidencias_funcionamento\morador_consumo.png)
+- ### Histórico de Consumo
+![morador_consumo](docs/evidencias_funcionamento/morador_consumo.png)
 
 
 ---
@@ -336,26 +336,26 @@ uv run evchargeops fechar 2026-07
 uv run evchargeops painel 2026-07
 ```
 
-   - ### `uv run evchargeops pain
-      Gerando o painel de consumo referente ao mês de junho/2026
-      ![terminal_painel](docs\evidencias_funcionamento\evidencia_terminal_painel.png)
+- ### `uv run evchargeops painel 2026-06`
+Gerando o painel de consumo referente ao mês de junho/2026
+![terminal_painel](docs/evidencias_funcionamento/evidencia_terminal_painel.png)
 
-   - ### `uv run evchargeops extrato 1 2026-06`
-      Relatório de consumo de uma unidade.
-      ![terminal_extrato](docs\evidencias_funcionamento\evidencia_terminal_extrato.png)
+- ### `uv run evchargeops extrato 1 2026-06`
+Relatório de consumo de uma unidade.
+![terminal_extrato](docs/evidencias_funcionamento/evidencia_terminal_extrato.png)
 
-   - ### `uv run evchargeops ingerir`
-      A ingestão importa sessões simuladas de `data/mock/sessoes_sems.json`
-      ![terminal_ingerir](docs\evidencias_funcionamento\evidencia_terminal_ingerir.png)
+- ### `uv run evchargeops ingerir`
+A ingestão importa sessões simuladas de julho de `data/mock/sessoes_sems.json`
+![terminal_ingerir](docs/evidencias_funcionamento/evidencia_terminal_ingerir.png)
 
 
-   - ### `uv run evchargeops fechar 2026-07`
-      O fechamento calcula faturas e registra alertas; o último comando mostra o novo ciclo. 
-      ![terminal_fechamento](docs\evidencias_funcionamento\evidencia_terminal_fechamento.png)
+- ### `uv run evchargeops fechar 2026-07`
+O fechamento calcula faturas e registra alertas; o último comando mostra o novo ciclo. 
+![terminal_fechamento](docs/evidencias_funcionamento/evidencia_terminal_fechamento.png)
 
-   - ### `uv run evchargeops painel 2026-07`
-      Gerando o painel referente ao mês de julho/2026
-      ![painel_julho](docs\evidencias_funcionamento\evidencia_terminal_painel_julho.png)
+- ### `uv run evchargeops painel 2026-07`
+Gerando o painel referente ao mês de 
+![painel_julho](docs/evidencias_funcionamento/evidencia_terminal_painel_julho.png)
 
 Se junho aparecer sem faturas, confira o aviso de fechamento do seed. Com o banco preparado e junho ainda não fechado, execute **na raiz** `uv run evchargeops fechar 2026-06` e consulte novamente.
 
@@ -383,12 +383,9 @@ uv run evchargeops demo
 7. Para consultar os registros, clique com o botão direito na tabela desejada e selecione **Visualizar dados**. Dependendo da versão do DBeaver, também é possível abrir a tabela e selecionar a aba **Dados**.
 
 
-   ![Conexão SQLite aberta no DBeaver, com as tabelas do banco de dados](docs\evidencias_funcionamento\banco_dbeaver.png)
-
+![Conexão SQLite aberta no DBeaver, com as tabelas do banco de dados](docs/evidencias_funcionamento/banco_dbeaver.png)
 
 ---
-
-
 
 ## 10. Estrutura do Repositorio
 
@@ -436,6 +433,7 @@ Challenge_GoodWe/
 * **ABNT:** NBR IEC 61851 — Sistema de recarga condutiva para veiculos eletricos.
 * **Scikit-Learn:** Liu, Ting & Zhou (2008) — *Isolation Forest for Anomaly Detection*.
 
+--- 
 
 ## 12 Equipe
 
