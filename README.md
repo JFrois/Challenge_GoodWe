@@ -23,10 +23,10 @@ O modulo de IA do EV ChargeOps foi integrado com **papel estrutural**, e nao ape
 ### 2.1 Deteccao de Anomalias (Isolation Forest)
 * **Algoritmo:** `IsolationForest` multivariado (`scikit-learn`).
 * **Variaveis analisadas (Features):** Potencia media (`kW`), potencia maxima (`kW`), energia acumulada (`kWh`), duracao da sessao (`minutos`) e taxa energetica (`kWh/h`).
-* **Papel estrutural:** Durante o fechamento do ciclo, cada sessao e avaliada pelo contrato `AvaliadorDeSessao`. Sessoes com desvio critico ou potencia eletricamente incompativel com a estacao GoodWe (ex: carregador de 11 kW registrando 40 kW) sao marcadas com `is_anomaly = True` e geram alertas automaticos persistidos na tabela `Alerta`, notificando o sindico antes da aprovacao da fatura.
+* **Papel estrutural:** Durante o fechamento do ciclo, cada sessão é avaliada pelo contrato `AvaliadorDeSessao`, usando `AvaliadorIsolationForest` como padrão. O avaliador aplica regras físicas determinísticas para casos extremos e Isolation Forest para desvios multivariados; as detecções são gravadas em `Sessao_Recarga` e geram registros em `Alerta`, notificando o sindico antes da aprovacao da fatura.
 
 ### 2.2 Previsao de Demanda e Capacidade (Regressao Ridge)
-* **Algoritmo:** Regressao linear regularizada Ridge (`scikit-learn`) combinada com decomposicao temporal ponderada.
+* **Algoritmo:** Regressão Ridge com índice temporal, componentes sazonais semanais (seno e cosseno) e indicador de fim de semana.
 * **Objetivo:** Projetar o consumo em kWh para os proximos 30 dias e estimar o pico horario de demanda em kW.
 * **Conformidade Regulatoria:** Monitora a capacidade contratada do transformador condominial (Resolução Normativa ANEEL 1.000/2021). Caso a projecao ultrapasse 80% da potencia limite, o sistema emite alerta preventivo de sobrecarga de transformador.
 
@@ -93,10 +93,12 @@ A avaliacao dos modelos foi realizada contra a massa sintetica gerada em `script
  
 ### 3.8 Adaptador para a fonte de sessões
 - A aplicação define `FonteDeSessoes` como contrato para obter sessões. `MockSemsClient` lê um arquivo JSON no formato documentado na Sprint 01. `SemsApiClient` define o ponto de integração para uma API real, quando houver acesso à conta organizacional SEMS.
-- A ingestão é idempotente: `id_sessao_sems` é único, então processar novamente o mesmo lote não duplica as sessões nem as cobranças.### 3.9 Contrato com o módulo de inteligência artificial
+- A ingestão é idempotente: `id_sessao_sems` é único, então processar novamente o mesmo lote não duplica as sessões nem as cobranças.
+
+### 3.9 Contrato com o módulo de inteligência artificial
 - O arquivo `domain/avaliacao.py` define o contrato `AvaliadorDeSessao`. Durante o fechamento, o motor de faturamento avalia cada sessão do período, registra `anomaly_score` e `is_anomaly` na tabela de sessões e cria um registro na tabela Alerta para cada anomalia identificada.
 
-- As implementações de referência são `AvaliadorNulo`, que mantém o fluxo executável sem análise, e `AvaliadorPorDesvioPadrao`, um baseline estatístico que demonstra o fluxo de ponta a ponta. O baseline não substitui o modelo de IA previsto para a sprint. Para integrar, por exemplo, um Isolation Forest, basta criar uma classe que implemente o método `avaliar()`.
+- `AvaliadorIsolationForest` é o avaliador usado pelo comando `demo` e pelo fechamento padrão. `AvaliadorPorDesvioPadrao` permanece como baseline comparativo, e `AvaliadorNulo` como opção sem detecção. O script de avaliação separa treino e teste por data; as métricas da seção 2.3 cobrem apenas o período reservado.
 
 
 ### 3.10 Unidade de Trabalho e Transacoes
@@ -135,10 +137,10 @@ distribuidora prevista na RN ANEEL 1.000/2021.
 
 | Planejado na Sprint 01 | Entregue na Sprint 02 | Justificativa |
 | :-- | :-- | :-- |
-| PostgreSQL | SQLite | O protótipo roda local e precisa ser reproduzível pelo avaliador sem subir serviço. Todo o SQL está isolado na camada de repositórios: migrar para PostgreSQL significa reescrever `repositories.py`, nada além dele. |
-| API REST com FastAPI | CLI + camada de consulta | A rubrica pede protótipo funcional e evidências, não serviço publicado. `services.py` já é a interface que um controller FastAPI consumiria; a API é extensão natural, não retrabalho. |
-| Front-end em React | Dashboard em Streamlit | Streamlit entrega as duas visões (morador e síndico) no tempo da sprint, com o mesmo Python do backend. |
-| Integração com a API SEMS em produção | `MockSemsClient` no formato da SEMS | A Open API exige conta organizacional GoodWe, que a equipe não possui. O contrato e o cliente real estão estruturados. |
+| PostgreSQL planejado | SQLite entregue | O protótipo local usa SQLite para facilitar execução; PostgreSQL permanece alternativa de implantação, não o banco documentado para este fluxo. |
+| API REST com FastAPI | FastAPI e CLI entregues | `src/challenge_goodwe/app.py` publica a API; o comando `evchargeops` também oferece demonstração e operações por terminal. |
+| Front-end em React | React + TypeScript + Vite entregues | A aplicação web implementa visões de morador e síndico e consome o backend FastAPI. Streamlit não é a interface deste protótipo. |
+| Integração com SEMS real | `MockSemsClient` entregue | A ingestão usa dados simulados no formato SEMS; conexão operacional exige credenciais GoodWe e não está habilitada neste protótipo. |
 | Telemetria vinda direto do carregador | Telemetria interpolada a partir dos totais da sessão | A API SEMS entrega o consolidado da sessão, não a série temporal. A função `sintetizar_telemetria` deriva os pontos por interpolação linear — e isso está explicitado no código para não ser confundido com medição real. |
 
 ---
@@ -391,47 +393,37 @@ uv run evchargeops demo
 
 ```text
 Challenge_GoodWe/
-├── pyproject.toml                         # Dependencias do ecossistema Python (uv)
-├── README.md                              # Documentacao tecnica principal
+├── README.md                              # Documentação, execução e evidências
+├── pyproject.toml                         # Dependências e comando evchargeops
+├── alembic/                               # Migrações de banco
 ├── data/
-│   ├── dados/database_goodwe.sql          # DDL e DML relacional padrao
-│   └── mock/sessoes_treino.json           # Dataset sintético para treino e metricas de IA
+│   ├── dados/database_goodwe.sql          # Schema inicial
+│   └── mock/                              # Sessões SEMS simuladas e dataset de avaliação
 ├── scripts/
-│   ├── gerar_dataset.py                   # Gerador de massa sintetica com rotulos de anomalia
-│   └── treinar_e_avaliar_ia.py            # Treinamento e validacao do Isolation Forest e Ridge
+│   ├── gerar_dataset.py                   # Dataset sintético rotulado
+│   └── treinar_e_avaliar_ia.py            # Avaliação temporal fora do treino
 ├── src/challenge_goodwe/
-│   ├── app.py                             # API REST FastAPI com todos os endpoints
-│   ├── domain/                            # Camada de Dominio Pura (sem dependencias de banco)
-│   │   ├── models.py                      # Entidades de negocio (Sessao, Fatura, Tarifa)
-│   │   ├── rateio.py                      # Motor de Rateio (Strategy Pattern)
-│   │   ├── avaliacao.py                   # Contrato e modelo Isolation Forest da IA
-│   │   └── exceptions.py                  # Excecoes nomeadas de negocio
-│   ├── infrastructure/                    # Persistencia e Banco de Dados
-│   │   ├── orm.py                         # Mapeamento Declarativo SQLAlchemy
-│   │   ├── database.py                    # Gerenciador de conexao e pool
-│   │   ├── seed.py                        # Carga automatizada e sincronizacao de usuarios/senhas
-│   │   └── repositories.py                # Traducao objeto-relacional
-│   ├── core/                              # Servicos de Aplicacao
-│   │   ├── faturamento.py                 # Fechamento de ciclo e faturas
-│   │   ├── ingestao.py                    # Ingestao e validacao de dados da GoodWe
-│   │   └── previsao.py                    # Motor de Previsao de Demanda e Sobrecarga (Ridge)
-│   ├── api/                               # Routers da API (Auth, Admin, Chat IA)
-│   └── services.py                        # Camada de consultas analiticas
-├── tests/                                 # Suite de 36 testes automatizados (pytest)
-└── Responsive EV ChargeOps Interface/     # Aplicacao Frontend Web (React + TypeScript + Vite)
-    ├── src/features/admin/                # Visao do Sindico (Dashboard, Operacoes, Faturas, Moradores)
-    ├── src/features/resident/             # Visao do Morador (Consumo, Faturas, Reservas, Chat)
-    └── src/features/auth/                 # Tela de Login com Acesso Rapido
+│   ├── app.py                              # Aplicação FastAPI
+│   ├── api/                                # Rotas de autenticação, gestão e chat
+│   ├── core/                               # Ingestão, faturamento e previsão
+│   ├── domain/                             # Modelos, rateio e avaliação de sessões
+│   ├── infrastructure/                    # ORM, banco, seed e repositórios
+│   ├── integracao/sems.py                  # Contrato e cliente SEMS simulado
+│   ├── main.py                             # CLI evchargeops
+│   └── services.py                         # Consultas da aplicação
+├── tests/                                  # Testes automatizados (pytest)
+├── docs/                                   # Diagrama ER e evidências
+└── Responsive EV ChargeOps Interface/      # Frontend React + TypeScript + Vite
 ```
 
 ---
 
 ## 11. Referencias Normativas e Tecnicas
 
-* **ANEEL:** Resolucao Normativa nº 1.000/2021 — Regras de prestacao do servico publico de distribuicao de energia eletrica e conexao de estacoes de recarga.
-* **GoodWe:** Manual de Operacao e Datasheet — Linha HCA G2 EV Charger AC (7.4 kW / 11 kW / 22 kW).
-* **ABNT:** NBR IEC 61851 — Sistema de recarga condutiva para veiculos eletricos.
-* **Scikit-Learn:** Liu, Ting & Zhou (2008) — *Isolation Forest for Anomaly Detection*.
+* **ANEEL:** [Resolução Normativa nº 1.000/2021 — texto oficial](https://www2.aneel.gov.br/cedoc/ren20211000.pdf), referência regulatória geral para distribuição de energia. Os limiares de 80% e 90% usados pelo protótipo são parâmetros próprios, não percentuais prescritos nesta norma.
+* **GoodWe:** [Carregadores HCA G2](https://br.goodwe.com/carregadores-hca-g2-goodwe) e [datasheet oficial HCA G2](https://en.goodwe.com/Ftp/EN/Downloads/Datasheet/GW_HCA-G2_Datasheet-EN.pdf).
+* **ABNT:** [Catálogo oficial de normas](https://www.abntcatalogo.com.br/pav.aspx?O=P) — ABNT NBR IEC 61851-1, requisitos gerais para sistemas de recarga condutiva de veículos elétricos.
+* **Isolation Forest:** Liu, F. T.; Ting, K. M.; Zhou, Z.-H. (2008). [Isolation Forest, IEEE ICDM](https://doi.org/10.1109/ICDM.2008.17).
 
 --- 
 
