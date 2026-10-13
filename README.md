@@ -52,18 +52,61 @@ A avaliacao dos modelos foi realizada contra a massa sintetica gerada em `script
 ## 3. Arquitetura e Decisoes Tecnicas
 
 ### 3.1 Camada de Dominio Pura
-As entidades e regras de negocio vivem em `src/challenge_goodwe/domain/`, completamente isoladas de bibliotecas de infraestrutura como SQLAlchemy, PostgreSQL ou SQLite. Isso permite que toda a logica central seja testada em milissegundos sem depender de conexoes de rede.
+- As entidades e regras de negocio vivem em `src/challenge_goodwe/domain/`, isoladas das dependências de infraestrutura e do banco SQLite. Isso permite testar a lógica central sem depender de conexões de rede ou de acesso ao banco.
 
 ### 3.2 Precisao Financeira (Valores Monetarios em Centavos)
-Em sistemas de faturamento e cobranca de condominios, erros de ponto flutuante (`float`) geram diferencas inaceitaveis de centavos. A aplicacao opera com `Decimal` e arredondamento `ROUND_HALF_UP`, persistindo todos os valores monetarios como inteiros (`INTEGER`) representando centavos. A conversao para Reais (BRL) ocorre estritamente na borda de apresentacao.
+- O SQLite não possui um tipo decimal nativo. Por isso, armazenar valores monetários como `REAL` pode introduzir erros de ponto flutuante. Como diferenças de centavos afetam cobranças, a aplicação usa Decimal e arredondamento `ROUND_HALF_UP`, e persiste valores monetários como inteiros `(INTEGER)` que representam centavos.
 
-### 3.3 Motor de Rateio como Strategy Pattern
-Implementado em `src/challenge_goodwe/domain/rateio.py` atraves do protocolo `PoliticaRateio`:
-* `RateioProporcionalKwh` (politica adotada): distribui o custo conforme o kWh efetivamente entregue, somado a taxa de infraestrutura dividida apenas entre unidades detentoras de veiculos eletricos.
-* `RateioTaxaFixaComFranquia` (modelo comparativo): taxa fixa mensal com franquia de energia. O sistema permite comparar ambos lado a lado no fechamento.
+- A conversão para reais (BRL) acontece na camada de apresentação. Valores de energia, por serem medições físicas e não valores monetários, continuam armazenados como `REAL`.
 
-### 3.4 Unidade de Trabalho e Transacoes
-O modulo `src/challenge_goodwe/infrastructure/db.py` encapsula a unidade de trabalho com gerenciador de contexto: commit automatico em caso de sucesso e rollback integral em qualquer excecao, impedindo inconsistencias parciais entre sessoes, leituras e faturas.
+### 3.3 Sessões de recarga e vínculo com faturas
+- O campo `Sessao_Recarga.id_fatura` começa como `NULL` durante a ingestão. As faturas são geradas a partir das sessões; exigir que uma fatura já existisse no momento do registro criaria uma dependência circular e impediria a ingestão de sessões em tempo real.
+
+- O vínculo entre a sessão e a fatura é preenchido durante o fechamento do ciclo, quando a fatura já foi criada.
+
+### 3.4 Geração e reconciliação de faturas
+- A tabela Fatura começa vazia: nenhuma fatura é criada pelo script SQL. Todas são geradas pelo motor de rateio, a partir das sessões do período.
+
+- Essa abordagem ajuda a garantir que os valores exibidos no dashboard correspondam às sessões que originaram a cobrança. O teste `test_fatura_reconcilia_com_as_sessoes` verifica essa reconciliação
+
+
+### 3.5 Tensão e corrente como valores numéricos
+- As colunas `tensao_v` e `corrente_a` armazenam valores numéricos como `REAL`, com as unidades indicadas nos nomes. Assim, esses dados podem ser usados como variáveis de entrada pelo modelo de detecção de anomalias. A versão anterior armazenava valores como 220V e 32A em texto, o que dificultava esse uso.
+
+### 3.6 Bandeira tarifária separada do custo base
+- Os campos valor_kwh_centavos e adicional_bandeira_centavos são armazenados separadamente. A propriedade `Tarifa.custo_kwh` soma os dois valores para obter o custo por `kWh`.
+
+
+### 3.7 Motor de Rateio como Strategy Pattern
+- O motor de rateio usa o protocolo `PoliticaRateio`, implementado em `src/challenge_goodwe/domain/rateio.py`. 
+- `RateioProporcionalKwh` (politica adotada): distribui o custo conforme o kWh efetivamente entregue, somadoa taxa de infraestrutura dividida apenas entre unidades detentoras de veiculos eletricos.
+- `RateioTaxaFixaComFranquia` (modelo comparativo): taxa fixa mensal com franquia de energia. O sistema permite comparar ambos lado a lado no fechamento.
+
+
+| Política | Receita do condomínio |
+|--- | ---|
+| `proporcional_kwh`| R$ 731,63 |
+| `taxa_fixa_com_franquia` | R$ 903,41 |
+
+
+- A taxa fixa arrecada mais, mas cobra R$ 120,00 tanto de uma unidade que consumiu 19,8 kWh quanto de outra que consumiu 126,4 kWh. Essa diferença ilustra o subsídio cruzado que a Sprint 01 identificou como possível fonte de conflitos em assembleias.
+ 
+### 3.8 Adaptador para a fonte de sessões
+- A aplicação define `FonteDeSessoes` como contrato para obter sessões. `MockSemsClient` lê um arquivo JSON no formato documentado na Sprint 01. `SemsApiClient` define o ponto de integração para uma API real, quando houver acesso à conta organizacional SEMS.
+- A ingestão é idempotente: `id_sessao_sems` é único, então processar novamente o mesmo lote não duplica as sessões nem as cobranças.### 3.9 Contrato com o módulo de inteligência artificial
+- O arquivo `domain/avaliacao.py` define o contrato `AvaliadorDeSessao`. Durante o fechamento, o motor de faturamento avalia cada sessão do período, registra `anomaly_score` e `is_anomaly` na tabela de sessões e cria um registro na tabela Alerta para cada anomalia identificada.
+
+- As implementações de referência são `AvaliadorNulo`, que mantém o fluxo executável sem análise, e `AvaliadorPorDesvioPadrao`, um baseline estatístico que demonstra o fluxo de ponta a ponta. O baseline não substitui o modelo de IA previsto para a sprint. Para integrar, por exemplo, um Isolation Forest, basta criar uma classe que implemente o método `avaliar()`.
+
+
+### 3.10 Unidade de Trabalho e Transacoes
+- O modulo `src/challenge_goodwe/infrastructure/db.py` encapsula a unidade de trabalho com gerenciador de contexto: Ao final de uma operação bem-sucedida, a transação é confirmada `(commit)`. Se ocorrer uma exceção, ela é revertida `(rollback)`.
+- Isso evita que uma falha durante a gravação deixe o banco SQLite com dados parcialmente atualizados, por exemplo, com a sessão registrada, mas sem todas as leituras de telemetria correspondentes.
+
+### 3.11 Logging em vez de print
+- A aplicação usa logging para registrar eventos e erros, mantendo rastreabilidade. 
+- Erros de negócio previstos — como um período já fechado ou uma tarifa ausente — são registrados como avisos, sem stack trace. 
+- Erros inesperados incluem o traceback para ajudar na investigação.
 
 ---
 
@@ -81,15 +124,22 @@ Todos os casos excepcionais mapeados na Sprint 01 possuem testes automatizados d
 | **Fechamento duplicado** | Idempotencia garantida: recusado sem o parametro explicito `--refazer`. | `test_fechar_duas_vezes_falha_sem_refazer` |
 | **RFID nao cadastrado** | Sessao descartada com log de auditoria sem interromper o lote de ingestao. | `test_rfid_desconhecido_e_descartado_sem_derrubar_a_ingestao` |
 
+
+Além disso, o motor emite alerta de capacidade quando o consumo do período
+atinge 80% da demanda contratada, apoiando a obrigação de comunicação prévia à
+distribuidora prevista na RN ANEEL 1.000/2021.
+
 ---
 
 ## 5. Desvios em Relacao a Sprint 01
 
 | Planejado na Sprint 01 | Entregue na Sprint 02 | Justificativa |
-| :--- | :--- | :--- |
-| **Banco Local Unico** | **PostgreSQL (Docker + Supabase Cloud)** | A adocao do Supabase somada ao Docker Compose permite avaliacao imediata sem atrito de instalacao para os corretores, mantendo a opcao de execucao 100% local. |
-| **Dashboard em Streamlit** | **Interface SPA Completa (React + Vite + Tailwind)** | A aplicacao web desenvolvida supera o prototipo em Streamlit, oferecendo design responsivo, controle de acesso baseado em papeis (RBAC), chat com assistente IA e gestao em tempo real. |
-| **Integracao SEMS em Producao** | **Adaptador SEMS estruturado + Mock de Alta Fidelidade** | A API SEMS oficial da GoodWe exige conta organizacional corporativa nao disponivel para o projeto academico. O contrato `FonteDeSessoes` foi estruturado de forma que trocar o mock pelo cliente de producao exige apenas uma linha de configuracao. |
+| :-- | :-- | :-- |
+| PostgreSQL | SQLite | O protótipo roda local e precisa ser reproduzível pelo avaliador sem subir serviço. Todo o SQL está isolado na camada de repositórios: migrar para PostgreSQL significa reescrever `repositories.py`, nada além dele. |
+| API REST com FastAPI | CLI + camada de consulta | A rubrica pede protótipo funcional e evidências, não serviço publicado. `services.py` já é a interface que um controller FastAPI consumiria; a API é extensão natural, não retrabalho. |
+| Front-end em React | Dashboard em Streamlit | Streamlit entrega as duas visões (morador e síndico) no tempo da sprint, com o mesmo Python do backend. |
+| Integração com a API SEMS em produção | `MockSemsClient` no formato da SEMS | A Open API exige conta organizacional GoodWe, que a equipe não possui. O contrato e o cliente real estão estruturados. |
+| Telemetria vinda direto do carregador | Telemetria interpolada a partir dos totais da sessão | A API SEMS entrega o consolidado da sessão, não a série temporal. A função `sintetizar_telemetria` deriva os pontos por interpolação linear — e isso está explicitado no código para não ser confundido com medição real. |
 
 ---
 
@@ -286,7 +336,7 @@ uv run evchargeops fechar 2026-07
 uv run evchargeops painel 2026-07
 ```
 
-   - ### `uv run evchargeops painel 2026-06`
+   - ### `uv run evchargeops pain
       Gerando o painel de consumo referente ao mês de junho/2026
       ![terminal_painel](docs\evidencias_funcionamento\evidencia_terminal_painel.png)
 
@@ -295,7 +345,7 @@ uv run evchargeops painel 2026-07
       ![terminal_extrato](docs\evidencias_funcionamento\evidencia_terminal_extrato.png)
 
    - ### `uv run evchargeops ingerir`
-      A ingestão importa sessões simuladas de julho de `data/mock/sessoes_sems.json`
+      A ingestão importa sessões simuladas de `data/mock/sessoes_sems.json`
       ![terminal_ingerir](docs\evidencias_funcionamento\evidencia_terminal_ingerir.png)
 
 
@@ -304,16 +354,25 @@ uv run evchargeops painel 2026-07
       ![terminal_fechamento](docs\evidencias_funcionamento\evidencia_terminal_fechamento.png)
 
    - ### `uv run evchargeops painel 2026-07`
-      Gerando o painel referente ao mês de 
+      Gerando o painel referente ao mês de julho/2026
       ![painel_julho](docs\evidencias_funcionamento\evidencia_terminal_painel_julho.png)
 
 Se junho aparecer sem faturas, confira o aviso de fechamento do seed. Com o banco preparado e junho ainda não fechado, execute **na raiz** `uv run evchargeops fechar 2026-06` e consulte novamente.
 
 ---
 
-## 9. Acesso ao Banco de Dados (DBeaver/Ferramentas SQL)
 
-Nesta seção, você encontrará o passo a passo para conectar o banco de dados SQLite do projeto ao DBeaver. Com essa ferramenta, você pode visualizar as tabelas e consultar os registros armazenados de forma gráfica, sem precisar executar comandos SQL no terminal.
+### Evidência de Execução demo
+
+```bash
+uv run evchargeops demo
+```
+
+![demo_part1](docs/evidencias_funcionamento/evidencia_demo1.png)
+![demo_part2](docs/evidencias_funcionamento/evidencia_demo2.png)
+![demo_part3](docs/evidencias_funcionamento/evidencia_demo3.png)
+
+## 9. Acesso ao Banco de Dados (DBeaver/Ferramentas SQL)
 
 1. Abra o DBeaver e selecione **Banco de Dados → Nova conexão**.
 2. Selecione **SQLite** e clique em **Avançar**.
@@ -335,7 +394,6 @@ Nesta seção, você encontrará o passo a passo para conectar o banco de dados 
 
 ```text
 Challenge_GoodWe/
-├── docker-compose.yml                     # Orquestracao do PostgreSQL local
 ├── pyproject.toml                         # Dependencias do ecossistema Python (uv)
 ├── README.md                              # Documentacao tecnica principal
 ├── data/
